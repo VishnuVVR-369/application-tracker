@@ -2,15 +2,37 @@
 
 import * as React from "react"
 import { useMutation, useQuery } from "convex/react"
-import { Download, Plus, Save } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronUp,
+  Database,
+  Download,
+  GripVertical,
+  ListChecks,
+  Monitor,
+  Moon,
+  Palette,
+  Plus,
+  Save,
+  Sun,
+  UserRound,
+} from "lucide-react"
 import { useTheme } from "next-themes"
 
 import { api } from "@/convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import { EmptyState, LoadingPanels, PageHeader, Panel } from "./common"
 import { useAppData } from "./use-app-data"
+
+const THEMES = [
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "light", label: "Light", icon: Sun },
+  { value: "system", label: "System", icon: Monitor },
+] as const
 
 export function SettingsPage() {
   const { data, isLoading } = useAppData()
@@ -53,9 +75,7 @@ export function SettingsPage() {
 
   function downloadExport() {
     const payload = exportPayload ?? data
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    })
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement("a")
     anchor.href = url
@@ -65,6 +85,8 @@ export function SettingsPage() {
   }
 
   const qualityItems = [...data.qualityChecklistItems].sort((a, b) => a.sortOrder - b.sortOrder)
+  const activeTheme = data.settings?.theme ?? "system"
+  const displayName = data.settings?.displayName ?? data.user.name ?? ""
 
   return (
     <>
@@ -75,65 +97,90 @@ export function SettingsPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Profile">
+        <Panel title="Profile" icon={UserRound}>
           <form onSubmit={saveProfile} className="grid gap-3">
-            <div className="rounded-md border border-line bg-surface-1 p-3">
-              <p className="micro-label">OAuth identity</p>
-              <p className="mt-1 text-sm">{data.user.email ?? "No email from provider"}</p>
+            <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-1/60 p-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand-hover to-brand text-base font-semibold text-primary-foreground shadow-glow">
+                {(displayName || data.user.email || "?").slice(0, 1).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="micro-label">OAuth identity</p>
+                <p className="mt-0.5 truncate text-sm">{data.user.email ?? "No email from provider"}</p>
+              </div>
             </div>
-            <Input
-              key={data.settings?.displayName ?? data.user.name ?? ""}
-              name="displayName"
-              defaultValue={data.settings?.displayName ?? data.user.name ?? ""}
-              placeholder="Display name"
-            />
-            <Button type="submit" variant="secondary">
+            <div className="grid gap-1.5">
+              <label className="micro-label">Display name</label>
+              <Input key={displayName} name="displayName" defaultValue={displayName} placeholder="Display name" />
+            </div>
+            <Button type="submit" variant="secondary" className="w-fit">
               <Save className="size-4" />
               Save profile
             </Button>
           </form>
         </Panel>
 
-        <Panel title="Appearance">
-          <div className="flex flex-wrap gap-2">
-            {(["dark", "light", "system"] as const).map((theme) => (
-              <Button
-                key={theme}
-                variant={data.settings?.theme === theme ? "default" : "secondary"}
-                onClick={() => void saveTheme(theme)}
-              >
-                {theme[0].toUpperCase() + theme.slice(1)}
-              </Button>
-            ))}
+        <Panel title="Appearance" icon={Palette}>
+          <p className="mb-3 text-sm text-ink-300">Choose how the tracker looks. Dark is the default.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {THEMES.map((theme) => {
+              const Icon = theme.icon
+              const active = activeTheme === theme.value
+              return (
+                <button
+                  key={theme.value}
+                  onClick={() => void saveTheme(theme.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors",
+                    active
+                      ? "border-brand/40 bg-brand-weak text-brand shadow-glow"
+                      : "border-line bg-surface-1/60 text-ink-300 hover:border-line-strong hover:text-ink-100"
+                  )}
+                >
+                  <Icon className="size-5" />
+                  <span className="text-sm font-medium">{theme.label}</span>
+                </button>
+              )
+            })}
           </div>
         </Panel>
 
-        <Panel title="Export my data">
-          <p className="mb-4 text-sm text-ink-300">
-            Export applications, resume metadata, reminders, activity, goals, wins, settings, and quality defaults as JSON.
-          </p>
-          <Button onClick={downloadExport}>
-            <Download className="size-4" />
-            Download JSON
-          </Button>
+        <Panel title="Export my data" icon={Database} className="xl:col-span-2">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-xl text-sm text-ink-300">
+              Export applications, resume metadata, reminders, activity, goals, wins, settings, and quality
+              defaults as a single JSON file.
+            </p>
+            <Button onClick={downloadExport} className="w-fit shrink-0">
+              <Download className="size-4" />
+              Download JSON
+            </Button>
+          </div>
         </Panel>
 
-        <Panel title="Quality checklist defaults" className="xl:col-span-2">
-          <form onSubmit={addItem} className="mb-4 grid gap-2 sm:grid-cols-[1fr_120px_auto]">
+        <Panel title="Quality checklist defaults" icon={ListChecks} className="xl:col-span-2">
+          <form onSubmit={addItem} className="mb-4 grid gap-2 border-b border-line/70 pb-4 sm:grid-cols-[1fr_120px_auto]">
             <Input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Custom checklist item" />
-            <Input type="number" min={1} value={newWeight} onChange={(event) => setNewWeight(event.target.value)} />
+            <Input type="number" min={1} value={newWeight} onChange={(event) => setNewWeight(event.target.value)} placeholder="Weight" />
             <Button type="submit" variant="secondary">
               <Plus className="size-4" />
-              Add
+              Add item
             </Button>
           </form>
           <div className="grid gap-2">
-            {qualityItems.map((item) => (
-              <div key={item._id} className="grid gap-2 rounded-md border border-line bg-surface-1 p-3 lg:grid-cols-[auto_1fr_120px_auto] lg:items-start">
-                <input
-                  type="checkbox"
+            {qualityItems.map((item, index) => (
+              <div
+                key={item._id}
+                className={cn(
+                  "grid items-start gap-3 rounded-xl border border-line bg-surface-1/60 p-3 transition-opacity lg:grid-cols-[auto_auto_1fr_96px_auto] lg:items-center",
+                  !item.enabled && "opacity-60"
+                )}
+              >
+                <span className="hidden text-ink-500 lg:block">
+                  <GripVertical className="size-4" />
+                </span>
+                <Switch
                   checked={item.enabled}
-                  onChange={(event) => void updateQualityItem({ id: item._id, enabled: event.target.checked })}
+                  onCheckedChange={(checked) => void updateQualityItem({ id: item._id, enabled: checked })}
                   aria-label={`Enable ${item.label}`}
                 />
                 <div className="grid gap-2">
@@ -144,20 +191,36 @@ export function SettingsPage() {
                   <Textarea
                     value={item.description ?? ""}
                     onChange={(event) => void updateQualityItem({ id: item._id, description: event.target.value })}
+                    placeholder="Optional description"
                   />
                 </div>
-                <Input
-                  type="number"
-                  min={1}
-                  value={item.weight}
-                  onChange={(event) => void updateQualityItem({ id: item._id, weight: Number(event.target.value) || 1 })}
-                />
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => void reorderQualityItem({ id: item._id, direction: "up" })}>
-                    Up
+                <div className="grid gap-1">
+                  <span className="micro-label">Weight</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={item.weight}
+                    onChange={(event) => void updateQualityItem({ id: item._id, weight: Number(event.target.value) || 1 })}
+                  />
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="secondary"
+                    size="icon-sm"
+                    disabled={index === 0}
+                    onClick={() => void reorderQualityItem({ id: item._id, direction: "up" })}
+                    aria-label="Move up"
+                  >
+                    <ChevronUp className="size-4" />
                   </Button>
-                  <Button variant="secondary" size="sm" onClick={() => void reorderQualityItem({ id: item._id, direction: "down" })}>
-                    Down
+                  <Button
+                    variant="secondary"
+                    size="icon-sm"
+                    disabled={index === qualityItems.length - 1}
+                    onClick={() => void reorderQualityItem({ id: item._id, direction: "down" })}
+                    aria-label="Move down"
+                  >
+                    <ChevronDown className="size-4" />
                   </Button>
                 </div>
               </div>

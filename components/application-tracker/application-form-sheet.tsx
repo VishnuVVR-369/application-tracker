@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -142,7 +143,8 @@ export function ApplicationFormSheet({
             and outcomes.
           </SheetDescription>
         </SheetHeader>
-        <form onSubmit={onSubmit} className="grid gap-4 px-4 pb-4">
+        <form onSubmit={onSubmit} className="grid gap-4 px-4 pb-4 pt-2">
+          <SectionLabel>Basics</SectionLabel>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Company">
               <Input
@@ -160,6 +162,7 @@ export function ApplicationFormSheet({
             </Field>
           </div>
 
+          <SectionLabel>Pipeline</SectionLabel>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Stage">
               <Select value={form.stage} onChange={(value) => updateField("stage", value)}>
@@ -184,6 +187,7 @@ export function ApplicationFormSheet({
             </Field>
           </div>
 
+          <SectionLabel>Logistics &amp; compensation</SectionLabel>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Location">
               <Input
@@ -285,6 +289,7 @@ export function ApplicationFormSheet({
             />
           </Field>
 
+          <SectionLabel>Deadlines</SectionLabel>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Apply by">
               <Input
@@ -309,6 +314,7 @@ export function ApplicationFormSheet({
             </Field>
           </div>
 
+          <SectionLabel>Offer</SectionLabel>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Offer comp">
               <Input
@@ -329,6 +335,7 @@ export function ApplicationFormSheet({
             </Field>
           </div>
 
+          <SectionLabel>Content</SectionLabel>
           <Field label="Job description snapshot">
             <Textarea
               value={form.jobDescriptionSnapshot}
@@ -339,10 +346,15 @@ export function ApplicationFormSheet({
             <Textarea value={form.notes} onChange={(event) => updateField("notes", event.target.value)} />
           </Field>
 
-          <SheetFooter className="px-0">
+          <SheetFooter className="-mx-4 -mb-4 mt-2 flex-row justify-end gap-2 border-t border-line/70 bg-surface-1/40 px-4">
+            <SheetClose asChild>
+              <Button type="button" variant="ghost">
+                Cancel
+              </Button>
+            </SheetClose>
             <Button type="submit" disabled={pending}>
               <Save className="size-4" />
-              {pending ? "Saving" : "Save application"}
+              {pending ? "Saving…" : "Save application"}
             </Button>
           </SheetFooter>
         </form>
@@ -373,9 +385,19 @@ function Select({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-9 rounded-md border border-line bg-surface-1 px-2 text-sm text-ink-100 outline-none focus:ring-3 focus:ring-ring/50"
+      className="h-9 rounded-md border border-line bg-surface-1 px-2 text-sm text-ink-100 outline-none transition-colors hover:border-line-strong focus:ring-3 focus:ring-ring/50"
     >
       {children}
     </select>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="micro-label mt-2 flex items-center gap-2 first:mt-0">
+      <span className="h-px flex-1 bg-line" />
+      {children}
+      <span className="h-px flex-1 bg-line" />
+    </p>
   )
 }

@@ -232,6 +232,136 @@
   .micro-label {
     @apply font-mono text-[11px] font-medium tracking-[0.16em] text-ink-500 uppercase;
   }
+
+  /* ── Atmosphere layer (UI overhaul) ────────────────────────────────────
+     Zoned intensity: glass + mesh + glow ride the "loud frame"; dense data
+     surfaces stay on solid --surface-* for legibility. */
+
+  /* Frosted glass — chrome & floating cards over the animated mesh. */
+  .glass {
+    background: color-mix(in oklch, var(--surface-2) 72%, transparent);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--line-strong) 55%, transparent);
+  }
+  .glass-strong {
+    background: color-mix(in oklch, var(--surface-1) 84%, transparent);
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid color-mix(in oklch, var(--line-strong) 65%, transparent);
+  }
+
+  /* Emerald→cyan→violet clipped text for hero/display moments. */
+  .text-gradient {
+    background-image: linear-gradient(
+      105deg,
+      var(--brand) 0%,
+      #2dd4bf 32%,
+      #38bdf8 64%,
+      #818cf8 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Hairline gradient border (mask trick) for hero/feature cards. */
+  .gradient-ring {
+    position: relative;
+  }
+  .gradient-ring::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--brand) 55%, transparent),
+      color-mix(in oklch, #38bdf8 35%, transparent) 45%,
+      transparent 75%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Soft emerald glow on hover for interactive "good" surfaces. */
+  .glow-hover {
+    transition:
+      box-shadow 180ms ease-out,
+      border-color 180ms ease-out,
+      transform 180ms ease-out;
+  }
+  .glow-hover:hover {
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--brand) 35%, transparent),
+      0 0 24px -4px color-mix(in oklch, var(--brand) 45%, transparent);
+  }
+
+  /* Fine grain overlay — atmosphere on hero/empty zones. */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+}
+
+/* ── Animated gradient-mesh blobs (used by <MeshBackground />) ───────────── */
+@keyframes mesh-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(8%, 6%, 0) scale(1.18);
+  }
+}
+@keyframes mesh-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  50% {
+    transform: translate3d(-7%, -9%, 0) scale(0.92);
+  }
+}
+@keyframes mesh-drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(5%, -7%, 0) scale(1.12);
+  }
+}
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.mesh-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  will-change: transform;
 }
 
 @utility tabular {
