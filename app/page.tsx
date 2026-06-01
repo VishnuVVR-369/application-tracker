@@ -32,7 +32,7 @@ const PILLARS = [
   {
     icon: FileText,
     title: "Attach what matters",
-    body: "Resumes, deadlines, reminders, and outcomes stay pinned to the application they belong to.",
+    body: "Resumes, deadlines, tasks, and outcomes stay pinned to the application they belong to.",
   },
   {
     icon: BarChart3,
@@ -280,7 +280,7 @@ export default async function Home() {
               icon: CalendarClock,
               n: "01",
               title: "Nothing slips",
-              body: "Deadlines and follow-up reminders surface on the dashboard and on each application, due and overdue.",
+              body: "Deadlines and follow-up tasks surface on the dashboard and on each application, due and overdue.",
             },
             {
               icon: LineChart,

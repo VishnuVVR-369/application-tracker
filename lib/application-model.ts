@@ -87,59 +87,108 @@ export const APPLICATION_TYPE_LABELS: Record<ApplicationType, string> = {
   referral_backed: "Referral backed",
 }
 
-export const OFFER_DECISIONS = ["accepted", "declined", "negotiating"] as const
+export const COMPENSATION_PERIODS = [
+  "hour",
+  "day",
+  "month",
+  "year",
+  "contract",
+  "unknown",
+] as const
+
+export type CompensationPeriod = (typeof COMPENSATION_PERIODS)[number]
+
+export const COMPENSATION_PERIOD_LABELS: Record<CompensationPeriod, string> = {
+  hour: "Hourly",
+  day: "Daily",
+  month: "Monthly",
+  year: "Yearly",
+  contract: "Contract",
+  unknown: "Unknown",
+}
+
+export const OFFER_DECISIONS = [
+  "pending",
+  "accepted",
+  "declined",
+  "negotiating",
+  "expired",
+] as const
 
 export type OfferDecision = (typeof OFFER_DECISIONS)[number]
 
 export const OFFER_DECISION_LABELS: Record<OfferDecision, string> = {
+  pending: "Pending",
   accepted: "Accepted",
   declined: "Declined",
   negotiating: "Negotiating",
+  expired: "Expired",
 }
 
 export type QualityCheckSnapshot = {
   key: string
+  itemId?: string
   label: string
   checked: boolean
   weight: number
   source: "default" | "custom"
+  sortOrder: number
+  checkedAt?: number
+  notes?: string
 }
 
 export type ApplicationRecord = {
   id: string
   companyName: string
+  companyKey: string
+  companyWebsite?: string
+  companyDomain?: string
   roleTitle: string
+  roleKey: string
   location?: string
   workArrangement?: WorkArrangement
-  salaryMin?: number
-  salaryMax?: number
-  currency?: string
+  compensationMin?: number
+  compensationMax?: number
+  compensationCurrency?: string
+  compensationPeriod?: CompensationPeriod
+  compensationNotes?: string
   postingUrl?: string
+  postingUrlCanonical?: string
+  postingTitleSnapshot?: string
+  postingCompanySnapshot?: string
+  postingCapturedAt?: number
   source?: ApplicationSource
-  dateApplied?: string
+  sourceDetail?: string
+  sourceSystem?: "manual" | "import" | "browser_extension"
+  sourceExternalId?: string
+  dateSavedDate?: string
+  dateAppliedDate?: string
   stage: ApplicationStage
+  currentStageEnteredAt: number
   referralStatus?: ReferralStatus
   applicationType?: ApplicationType
-  resumeId?: string
+  currentResumeId?: string
   qualityChecks: QualityCheckSnapshot[]
-  applicationDeadlineAt?: string
-  takeHomeDeadlineAt?: string
-  offerResponseDeadlineAt?: string
-  offerComp?: string
-  offerDecision?: OfferDecision
+  applicationDeadlineDate?: string
+  takeHomeDeadlineDate?: string
+  offerResponseDeadlineDate?: string
   jobDescriptionSnapshot?: string
   notes?: string
-  closedAt?: string
+  closedAt?: number
+  closedDate?: string
   closedOutcome?: ClosedOutcome
   rejectionStage?: RejectionStage
+  rejectionStageDetail?: string
   rejectionReason?: RejectionReason
+  rejectionReasonDetail?: string
   rejectionFeedback?: string
   rejectionLessons?: string
-  reapplyAfter?: string
+  reapplyAfterDate?: string
   archived: boolean
-  createdAt: string
-  updatedAt: string
-  lastActivityAt?: string
+  archivedAt?: number
+  createdAt: number
+  updatedAt: number
+  lastActivityAt?: number
 }
 
 export const CLOSED_OUTCOMES = [
@@ -157,6 +206,7 @@ export const REJECTION_STAGES = [
   "technical_screen",
   "onsite",
   "offer",
+  "other",
 ] as const
 
 export type RejectionStage = (typeof REJECTION_STAGES)[number]
@@ -169,6 +219,7 @@ export const REJECTION_REASONS = [
   "timing",
   "competition",
   "unknown",
+  "other",
 ] as const
 
 export type RejectionReason = (typeof REJECTION_REASONS)[number]
@@ -178,32 +229,79 @@ export type ResumeRecord = {
   label: string
   fileName: string
   storageId: string
-  mimeType: string
+  mimeType: "application/pdf"
   sizeBytes: number
+  fileHash?: string
   notes?: string
   isDefault: boolean
+  defaultedAt?: number
   archived: boolean
-  createdAt: string
-  updatedAt: string
+  archivedAt?: number
+  createdAt: number
+  updatedAt: number
 }
 
-export const REMINDER_TYPES = ["follow_up", "deadline", "general"] as const
-export type ReminderType = (typeof REMINDER_TYPES)[number]
+export type ApplicationResumeLink = {
+  id: string
+  applicationId: string
+  resumeId: string
+  isCurrent: boolean
+  linkedAt: number
+  unlinkedAt?: number
+  resumeSnapshot: {
+    label: string
+    fileName: string
+    storageId: string
+    mimeType: "application/pdf"
+    sizeBytes: number
+  }
+  createdAt: number
+  updatedAt: number
+}
 
-export const REMINDER_STATUSES = ["pending", "completed", "dismissed"] as const
-export type ReminderStatus = (typeof REMINDER_STATUSES)[number]
+export const TASK_KINDS = [
+  "follow_up",
+  "deadline",
+  "general",
+  "interview_prep",
+  "interview_follow_up",
+  "offer_response",
+  "reapply",
+] as const
+export type TaskKind = (typeof TASK_KINDS)[number]
 
-export type ReminderRecord = {
+export const TASK_KIND_LABELS: Record<TaskKind, string> = {
+  follow_up: "Follow-up",
+  deadline: "Deadline",
+  general: "General",
+  interview_prep: "Interview prep",
+  interview_follow_up: "Interview follow-up",
+  offer_response: "Offer response",
+  reapply: "Reapply",
+}
+
+export const TASK_STATUSES = ["pending", "completed", "dismissed", "canceled"] as const
+export type TaskStatus = (typeof TASK_STATUSES)[number]
+
+export type TaskRecord = {
   id: string
   applicationId?: string
+  relatedInterviewId?: string
+  relatedOfferId?: string
   title: string
   description?: string
-  dueAt: string
-  status: ReminderStatus
-  reminderType: ReminderType
-  createdAt: string
-  completedAt?: string
-  dismissedAt?: string
+  dueAt?: number
+  dueDate?: string
+  timezone?: string
+  status: TaskStatus
+  kind: TaskKind
+  kindDetail?: string
+  source: "manual" | "system" | "deadline"
+  createdAt: number
+  updatedAt: number
+  completedAt?: number
+  dismissedAt?: number
+  canceledAt?: number
 }
 
 export const ACTIVITY_TYPES = [
@@ -211,8 +309,11 @@ export const ACTIVITY_TYPES = [
   "stage_changed",
   "edited",
   "resume_linked",
-  "reminder_completed",
+  "task_completed",
   "note",
+  "contact_added",
+  "interview_scheduled",
+  "offer_recorded",
   "manual",
 ] as const
 
@@ -225,15 +326,91 @@ export type ActivityEvent = {
   title: string
   description?: string
   source: "auto" | "manual"
-  eventDate: string
-  createdAt: string
-  fromStage?: ApplicationStage
-  toStage?: ApplicationStage
+  actorType: "user" | "system"
+  actorUserId?: string
+  eventAt: number
+  eventDate?: string
+  relatedEntityType?: string
+  relatedEntityId?: string
+  metadataJson?: string
+  dedupeKey?: string
+  supersededAt?: number
+  createdAt: number
+}
+
+export type ApplicationStageHistory = {
+  id: string
+  applicationId: string
+  stage: ApplicationStage
+  enteredAt: number
+  exitedAt?: number
+  enteredFromStage?: ApplicationStage
+  exitedToStage?: ApplicationStage
+  createdAt: number
+  updatedAt: number
+}
+
+export type ApplicationContact = {
+  id: string
+  applicationId: string
+  name: string
+  relationshipType: "recruiter" | "referrer" | "hiring_manager" | "interviewer" | "employee" | "other"
+  relationshipDetail?: string
+  roleTitle?: string
+  email?: string
+  phone?: string
+  linkedinUrl?: string
+  notes?: string
+  archived: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export type ApplicationInterview = {
+  id: string
+  applicationId: string
+  roundNumber?: number
+  roundLabel?: string
+  interviewType?: string
+  format?: string
+  status: "scheduled" | "completed" | "canceled" | "rescheduled" | "no_show"
+  scheduledAt?: number
+  scheduledDate?: string
+  timezone?: string
+  durationMinutes?: number
+  contactIds: string[]
+  prepNotes?: string
+  feedback?: string
+  result?: string
+  createdAt: number
+  updatedAt: number
+}
+
+export type ApplicationOffer = {
+  id: string
+  applicationId: string
+  versionNumber: number
+  isCurrent: boolean
+  offeredAt?: number
+  offeredDate?: string
+  responseDeadlineDate?: string
+  baseAmount?: number
+  bonusAmount?: number
+  equitySummary?: string
+  currency?: string
+  period?: "year" | "day" | "month" | "hour" | "contract" | "unknown"
+  compensationNotes?: string
+  decision: OfferDecision
+  decidedAt?: number
+  notes?: string
+  createdAt: number
+  updatedAt: number
 }
 
 export type WeeklyGoal = {
   id: string
-  weekStart: string
+  weekStartDate: string
+  timezone: string
   applicationsSentTarget: number
   followUpsSentTarget: number
   interviewsReachedTarget: number
@@ -241,8 +418,8 @@ export type WeeklyGoal = {
   manualResumeImprovements: number
   lessonsLearned?: string
   nextWeekFocus?: string
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
 }
 
 export const WIN_TYPES = [
@@ -262,9 +439,13 @@ export type WinLogEntry = {
   type: WinType
   title: string
   notes?: string
-  occurredAt: string
+  occurredAt: number
+  occurredDate: string
   source: "auto" | "manual"
-  createdAt: string
+  relatedEntityType?: string
+  relatedEntityId?: string
+  dedupeKey?: string
+  createdAt: number
 }
 
 export type QualityChecklistItem = {
@@ -276,13 +457,14 @@ export type QualityChecklistItem = {
   weight: number
   sortOrder: number
   enabled: boolean
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
 }
 
 export type UserSettings = {
   displayName: string
   theme: "dark" | "light" | "system"
+  timezone: string
   email: string
   imageUrl?: string
 }
@@ -290,8 +472,13 @@ export type UserSettings = {
 export type TrackerData = {
   applications: ApplicationRecord[]
   resumes: ResumeRecord[]
-  reminders: ReminderRecord[]
+  applicationResumeLinks: ApplicationResumeLink[]
+  tasks: TaskRecord[]
   activityEvents: ActivityEvent[]
+  applicationStageHistory: ApplicationStageHistory[]
+  applicationContacts: ApplicationContact[]
+  applicationInterviews: ApplicationInterview[]
+  applicationOffers: ApplicationOffer[]
   weeklyGoals: WeeklyGoal[]
   winLogEntries: WinLogEntry[]
   qualityChecklistItems: QualityChecklistItem[]
@@ -321,18 +508,18 @@ export function isActiveApplication(application: ApplicationRecord) {
 
 export function getApplicationPrimaryDeadline(application: ApplicationRecord) {
   return (
-    application.takeHomeDeadlineAt ??
-    application.offerResponseDeadlineAt ??
-    application.applicationDeadlineAt
+    application.takeHomeDeadlineDate ??
+    application.offerResponseDeadlineDate ??
+    application.applicationDeadlineDate
   )
 }
 
 export function formatApplicationSalary(application: ApplicationRecord) {
-  if (!application.salaryMin && !application.salaryMax) {
-    return "Not set"
+  if (!application.compensationMin && !application.compensationMax) {
+    return application.compensationNotes ?? "Not set"
   }
 
-  const currency = application.currency ?? "USD"
+  const currency = application.compensationCurrency ?? "USD"
   const format = (value: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -340,9 +527,12 @@ export function formatApplicationSalary(application: ApplicationRecord) {
       maximumFractionDigits: 0,
     }).format(value)
 
-  if (application.salaryMin && application.salaryMax) {
-    return `${format(application.salaryMin)} - ${format(application.salaryMax)}`
-  }
+  const range =
+    application.compensationMin && application.compensationMax
+      ? `${format(application.compensationMin)} - ${format(application.compensationMax)}`
+      : format(application.compensationMin ?? application.compensationMax ?? 0)
 
-  return format(application.salaryMin ?? application.salaryMax ?? 0)
+  return application.compensationPeriod && application.compensationPeriod !== "unknown"
+    ? `${range} / ${application.compensationPeriod}`
+    : range
 }

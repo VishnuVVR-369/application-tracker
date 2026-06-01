@@ -71,7 +71,7 @@ export function DocumentsPage() {
         label: label || file.name.replace(/\.pdf$/i, ""),
         fileName: file.name,
         storageId: storageId as Id<"_storage">,
-        mimeType: file.type,
+        mimeType: "application/pdf",
         sizeBytes: file.size,
         notes: notes || undefined,
         isDefault,

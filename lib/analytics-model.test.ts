@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest"
 
-import type { ActivityEvent, ApplicationRecord } from "@/lib/application-model"
+import type { ApplicationRecord, ApplicationStageHistory } from "@/lib/application-model"
 import { buildAnalyticsModel } from "@/lib/analytics-model"
 
 const base: ApplicationRecord = {
   id: "app-1",
   companyName: "Acme",
+  companyKey: "acme",
   roleTitle: "Engineer",
+  roleKey: "engineer",
   stage: "applied",
-  dateApplied: "2026-06-01",
+  currentStageEnteredAt: Date.parse("2026-06-01T00:00:00.000Z"),
+  dateAppliedDate: "2026-06-01",
   source: "linkedin",
   referralStatus: "not_checked",
   qualityChecks: [],
   archived: false,
-  createdAt: "2026-06-01T00:00:00.000Z",
-  updatedAt: "2026-06-01T00:00:00.000Z",
+  createdAt: Date.parse("2026-06-01T00:00:00.000Z"),
+  updatedAt: Date.parse("2026-06-01T00:00:00.000Z"),
 }
 
 describe("analytics-model", () => {
@@ -34,21 +37,20 @@ describe("analytics-model", () => {
     expect(model.rejection.outcomes).toHaveLength(0)
   })
 
-  it("uses activity for first response timing", () => {
-    const event: ActivityEvent = {
-      id: "event-1",
+  it("uses stage history for first response timing", () => {
+    const stageEvent: ApplicationStageHistory = {
+      id: "history-1",
       applicationId: "app-1",
-      type: "stage_changed",
-      title: "Moved",
-      source: "auto",
-      eventDate: "2026-06-04T00:00:00.000Z",
-      createdAt: "2026-06-04T00:00:00.000Z",
-      toStage: "phone_screen",
-      fromStage: "applied",
+      stage: "phone_screen",
+      enteredAt: Date.parse("2026-06-04T00:00:00.000Z"),
+      enteredFromStage: "applied",
+      createdAt: Date.parse("2026-06-04T00:00:00.000Z"),
+      updatedAt: Date.parse("2026-06-04T00:00:00.000Z"),
     }
     const model = buildAnalyticsModel({
       applications: [base],
-      activityEvents: [event],
+      activityEvents: [],
+      stageHistory: [stageEvent],
       resumes: [],
       filters: { includeArchived: false, includeClosed: true },
     })

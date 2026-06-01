@@ -3,45 +3,66 @@ import { v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { mutation, query, type MutationCtx } from "./_generated/server"
 import {
-  applicationStage,
   applicationSource,
+  applicationStage,
   applicationType,
   closedOutcome,
+  compensationPeriod,
   offerDecision,
   qualityCheckSnapshot,
   referralStatus,
   rejectionReason,
   rejectionStage,
+  sourceSystem,
   workArrangement,
 } from "./schema"
+import {
+  buildResumeSnapshot,
+  canonicalizeUrl,
+  dateKeyFromTimestamp,
+  getDomain,
+  normalizeKey,
+  removeUndefined,
+} from "./model"
 import { getCurrentUserDoc } from "./users"
 
 const optionalApplicationFields = {
+  companyWebsite: v.optional(v.string()),
   location: v.optional(v.string()),
   workArrangement: v.optional(workArrangement),
-  salaryMin: v.optional(v.number()),
-  salaryMax: v.optional(v.number()),
-  currency: v.optional(v.string()),
+  compensationMin: v.optional(v.number()),
+  compensationMax: v.optional(v.number()),
+  compensationCurrency: v.optional(v.string()),
+  compensationPeriod: v.optional(compensationPeriod),
+  compensationNotes: v.optional(v.string()),
   postingUrl: v.optional(v.string()),
+  postingTitleSnapshot: v.optional(v.string()),
+  postingCompanySnapshot: v.optional(v.string()),
+  postingCapturedAt: v.optional(v.number()),
+  jobDescriptionSnapshot: v.optional(v.string()),
   source: v.optional(applicationSource),
-  dateApplied: v.optional(v.string()),
+  sourceDetail: v.optional(v.string()),
+  sourceSystem: v.optional(sourceSystem),
+  sourceExternalId: v.optional(v.string()),
+  dateSavedDate: v.optional(v.string()),
+  dateAppliedDate: v.optional(v.string()),
   referralStatus: v.optional(referralStatus),
   applicationType: v.optional(applicationType),
-  resumeId: v.optional(v.id("resumes")),
-  applicationDeadlineAt: v.optional(v.string()),
-  takeHomeDeadlineAt: v.optional(v.string()),
-  offerResponseDeadlineAt: v.optional(v.string()),
-  offerComp: v.optional(v.string()),
-  offerDecision: v.optional(offerDecision),
-  jobDescriptionSnapshot: v.optional(v.string()),
+  currentResumeId: v.optional(v.id("resumes")),
+  applicationDeadlineDate: v.optional(v.string()),
+  takeHomeDeadlineDate: v.optional(v.string()),
+  offerResponseDeadlineDate: v.optional(v.string()),
   notes: v.optional(v.string()),
-  closedAt: v.optional(v.string()),
+  closedAt: v.optional(v.number()),
+  closedDate: v.optional(v.string()),
   closedOutcome: v.optional(closedOutcome),
   rejectionStage: v.optional(rejectionStage),
+  rejectionStageDetail: v.optional(v.string()),
   rejectionReason: v.optional(rejectionReason),
+  rejectionReasonDetail: v.optional(v.string()),
   rejectionFeedback: v.optional(v.string()),
   rejectionLessons: v.optional(v.string()),
-  reapplyAfter: v.optional(v.string()),
+  reapplyAfterDate: v.optional(v.string()),
 }
 
 async function ensureResumeOwnership(
@@ -50,12 +71,13 @@ async function ensureResumeOwnership(
   userId: Id<"users">
 ) {
   if (!resumeId) {
-    return
+    return undefined
   }
   const resume = await ctx.db.get(resumeId)
   if (!resume || resume.userId !== userId) {
     throw new Error("Resume not found")
   }
+  return resume
 }
 
 async function getDefaultResumeId(ctx: MutationCtx, userId: Id<"users">) {
@@ -78,23 +100,47 @@ async function getQualitySnapshot(ctx: MutationCtx, userId: Id<"users">) {
 
   return items.map((item) => ({
     key: item.key,
+    itemId: item._id,
     label: item.label,
     checked: false,
     weight: item.weight,
     source: item.source,
+    sortOrder: item.sortOrder,
   }))
 }
 
 async function addActivity(
   ctx: MutationCtx,
-  userId: Id<"users">,
-  applicationId: Id<"applications">,
-  event: Omit<Doc<"activityEvents">, "_id" | "_creationTime" | "userId" | "applicationId">
+  args: {
+    userId: Id<"users">
+    applicationId: Id<"applications">
+    type: Doc<"activityEvents">["type"]
+    title: string
+    description?: string
+    source?: "auto" | "manual"
+    eventAt: number
+    relatedEntityType?: Doc<"activityEvents">["relatedEntityType"]
+    relatedEntityId?: string
+    metadata?: unknown
+    dedupeKey?: string
+  }
 ) {
-  await ctx.db.insert("activityEvents", {
-    userId,
-    applicationId,
-    ...event,
+  return await ctx.db.insert("activityEvents", {
+    userId: args.userId,
+    applicationId: args.applicationId,
+    type: args.type,
+    title: args.title,
+    description: args.description,
+    source: args.source ?? "auto",
+    actorType: args.source === "manual" ? "user" : "system",
+    actorUserId: args.source === "manual" ? args.userId : undefined,
+    eventAt: args.eventAt,
+    eventDate: dateKeyFromTimestamp(args.eventAt),
+    relatedEntityType: args.relatedEntityType,
+    relatedEntityId: args.relatedEntityId,
+    metadataJson: args.metadata === undefined ? undefined : JSON.stringify(args.metadata),
+    dedupeKey: args.dedupeKey,
+    createdAt: args.eventAt,
   })
 }
 
@@ -107,8 +153,17 @@ async function addAutoWin(
     | "response_received"
     | "interview_reached"
     | "offer_received",
-  at: string
+  at: number
 ) {
+  const dedupeKey = `${application._id}:${type}`
+  const existing = await ctx.db
+    .query("winLogEntries")
+    .withIndex("by_userId_and_dedupeKey", (q) => q.eq("userId", userId).eq("dedupeKey", dedupeKey))
+    .first()
+  if (existing) {
+    return
+  }
+
   await ctx.db.insert("winLogEntries", {
     userId,
     applicationId: application._id,
@@ -122,7 +177,11 @@ async function addAutoWin(
             ? `Reached interview at ${application.companyName}`
             : `Offer from ${application.companyName}`,
     occurredAt: at,
+    occurredDate: dateKeyFromTimestamp(at),
     source: "auto",
+    relatedEntityType: "application",
+    relatedEntityId: String(application._id),
+    dedupeKey,
     createdAt: at,
   })
 }
@@ -131,7 +190,7 @@ async function addMilestoneWins(
   ctx: MutationCtx,
   userId: Id<"users">,
   application: Doc<"applications">,
-  at: string
+  at: number
 ) {
   if (application.stage !== "saved") {
     await addAutoWin(ctx, userId, application, "application_submitted", at)
@@ -145,6 +204,225 @@ async function addMilestoneWins(
   if (application.stage === "offer") {
     await addAutoWin(ctx, userId, application, "offer_received", at)
   }
+}
+
+async function insertStageHistory(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  applicationId: Id<"applications">,
+  stage: Doc<"applications">["stage"],
+  at: number,
+  fromStage?: Doc<"applications">["stage"],
+  activityEventId?: Id<"activityEvents">
+) {
+  return await ctx.db.insert("applicationStageHistory", {
+    userId,
+    applicationId,
+    stage,
+    enteredAt: at,
+    enteredFromStage: fromStage,
+    source: "user",
+    activityEventId,
+    createdAt: at,
+    updatedAt: at,
+  })
+}
+
+async function transitionStage(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  application: Doc<"applications">,
+  nextStage: Doc<"applications">["stage"],
+  at: number
+) {
+  if (application.stage === nextStage) {
+    return undefined
+  }
+
+  const openHistory = (
+    await ctx.db
+      .query("applicationStageHistory")
+      .withIndex("by_applicationId", (q) => q.eq("applicationId", application._id))
+      .collect()
+  ).find((item) => item.exitedAt === undefined)
+
+  if (openHistory) {
+    await ctx.db.patch(openHistory._id, {
+      exitedAt: at,
+      exitedToStage: nextStage,
+      updatedAt: at,
+    })
+  }
+
+  const eventId = await addActivity(ctx, {
+    userId,
+    applicationId: application._id,
+    type: "stage_changed",
+    title: `Moved to ${nextStage}`,
+    description: `${application.stage} to ${nextStage}`,
+    eventAt: at,
+    relatedEntityType: "application",
+    relatedEntityId: String(application._id),
+    metadata: { fromStage: application.stage, toStage: nextStage },
+    dedupeKey: `${application._id}:stage:${application.stage}:${nextStage}:${at}`,
+  })
+
+  await insertStageHistory(ctx, userId, application._id, nextStage, at, application.stage, eventId)
+  return eventId
+}
+
+async function setCurrentResumeLink(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  applicationId: Id<"applications">,
+  resumeId: Id<"resumes">,
+  at: number
+) {
+  const resume = await ensureResumeOwnership(ctx, resumeId, userId)
+  if (!resume) {
+    return
+  }
+
+  const currentLinks = await ctx.db
+    .query("applicationResumeLinks")
+    .withIndex("by_userId_and_applicationId_and_isCurrent", (q) =>
+      q.eq("userId", userId).eq("applicationId", applicationId).eq("isCurrent", true)
+    )
+    .collect()
+
+  await Promise.all(
+    currentLinks.map((link) =>
+      ctx.db.patch(link._id, {
+        isCurrent: false,
+        unlinkedAt: at,
+        updatedAt: at,
+      })
+    )
+  )
+
+  await ctx.db.insert("applicationResumeLinks", {
+    userId,
+    applicationId,
+    resumeId,
+    isCurrent: true,
+    linkedAt: at,
+    resumeSnapshot: buildResumeSnapshot(resume),
+    createdAt: at,
+    updatedAt: at,
+  })
+
+  await addActivity(ctx, {
+    userId,
+    applicationId,
+    type: "resume_linked",
+    title: `Linked resume: ${resume.label}`,
+    eventAt: at,
+    relatedEntityType: "resume",
+    relatedEntityId: String(resume._id),
+  })
+}
+
+type ApplicationPatchInput = {
+  companyName?: string
+  companyWebsite?: string
+  roleTitle?: string
+  location?: string
+  workArrangement?: Doc<"applications">["workArrangement"]
+  compensationMin?: number
+  compensationMax?: number
+  compensationCurrency?: string
+  compensationPeriod?: Doc<"applications">["compensationPeriod"]
+  compensationNotes?: string
+  postingUrl?: string
+  postingTitleSnapshot?: string
+  postingCompanySnapshot?: string
+  postingCapturedAt?: number
+  jobDescriptionSnapshot?: string
+  source?: Doc<"applications">["source"]
+  sourceDetail?: string
+  sourceSystem?: Doc<"applications">["sourceSystem"]
+  sourceExternalId?: string
+  dateSavedDate?: string
+  dateAppliedDate?: string
+  stage?: Doc<"applications">["stage"]
+  referralStatus?: Doc<"applications">["referralStatus"]
+  applicationType?: Doc<"applications">["applicationType"]
+  currentResumeId?: Id<"resumes">
+  qualityChecks?: Doc<"applications">["qualityChecks"]
+  applicationDeadlineDate?: string
+  takeHomeDeadlineDate?: string
+  offerResponseDeadlineDate?: string
+  notes?: string
+  closedAt?: number
+  closedDate?: string
+  closedOutcome?: Doc<"applications">["closedOutcome"]
+  rejectionStage?: Doc<"applications">["rejectionStage"]
+  rejectionStageDetail?: string
+  rejectionReason?: Doc<"applications">["rejectionReason"]
+  rejectionReasonDetail?: string
+  rejectionFeedback?: string
+  rejectionLessons?: string
+  reapplyAfterDate?: string
+  archived?: boolean
+  archivedAt?: number
+}
+
+function buildApplicationPatch(args: ApplicationPatchInput) {
+  const companyName = args.companyName
+  const roleTitle = args.roleTitle
+  const postingUrl = args.postingUrl
+  const companyWebsite = args.companyWebsite
+
+  return removeUndefined({
+    companyName,
+    companyKey: companyName === undefined ? undefined : normalizeKey(companyName),
+    companyWebsite,
+    companyDomain:
+      companyWebsite === undefined ? undefined : getDomain(companyWebsite),
+    roleTitle,
+    roleKey: roleTitle === undefined ? undefined : normalizeKey(roleTitle),
+    location: args.location,
+    workArrangement: args.workArrangement,
+    compensationMin: args.compensationMin,
+    compensationMax: args.compensationMax,
+    compensationCurrency: args.compensationCurrency,
+    compensationPeriod: args.compensationPeriod,
+    compensationNotes: args.compensationNotes,
+    postingUrl,
+    postingUrlCanonical:
+      postingUrl === undefined ? undefined : canonicalizeUrl(postingUrl),
+    postingTitleSnapshot: args.postingTitleSnapshot,
+    postingCompanySnapshot: args.postingCompanySnapshot,
+    postingCapturedAt: args.postingCapturedAt,
+    jobDescriptionSnapshot: args.jobDescriptionSnapshot,
+    source: args.source,
+    sourceDetail: args.sourceDetail,
+    sourceSystem: args.sourceSystem,
+    sourceExternalId: args.sourceExternalId,
+    dateSavedDate: args.dateSavedDate,
+    dateAppliedDate: args.dateAppliedDate,
+    stage: args.stage,
+    referralStatus: args.referralStatus,
+    applicationType: args.applicationType,
+    currentResumeId: args.currentResumeId,
+    qualityChecks: args.qualityChecks,
+    applicationDeadlineDate: args.applicationDeadlineDate,
+    takeHomeDeadlineDate: args.takeHomeDeadlineDate,
+    offerResponseDeadlineDate: args.offerResponseDeadlineDate,
+    notes: args.notes,
+    closedAt: args.closedAt,
+    closedDate: args.closedDate,
+    closedOutcome: args.closedOutcome,
+    rejectionStage: args.rejectionStage,
+    rejectionStageDetail: args.rejectionStageDetail,
+    rejectionReason: args.rejectionReason,
+    rejectionReasonDetail: args.rejectionReasonDetail,
+    rejectionFeedback: args.rejectionFeedback,
+    rejectionLessons: args.rejectionLessons,
+    reapplyAfterDate: args.reapplyAfterDate,
+    archived: args.archived,
+    archivedAt: args.archivedAt,
+  }) as Partial<Doc<"applications">>
 }
 
 export const list = query({
@@ -179,54 +457,56 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
-    const now = new Date().toISOString()
-    const resumeId = args.resumeId ?? (await getDefaultResumeId(ctx, user._id))
-    await ensureResumeOwnership(ctx, resumeId, user._id)
+    const now = Date.now()
+    const currentResumeId =
+      args.currentResumeId ?? (await getDefaultResumeId(ctx, user._id))
+    await ensureResumeOwnership(ctx, currentResumeId, user._id)
+
+    const stage = args.stage
+    const patch = buildApplicationPatch({
+      ...args,
+      companyName: args.companyName,
+      roleTitle: args.roleTitle,
+      currentResumeId,
+      dateSavedDate: args.dateSavedDate ?? dateKeyFromTimestamp(now),
+      dateAppliedDate:
+        args.dateAppliedDate ??
+        (stage === "saved" ? undefined : dateKeyFromTimestamp(now)),
+    })
 
     const applicationId = await ctx.db.insert("applications", {
       userId: user._id,
       companyName: args.companyName,
+      companyKey: normalizeKey(args.companyName),
       roleTitle: args.roleTitle,
-      location: args.location,
-      workArrangement: args.workArrangement,
-      salaryMin: args.salaryMin,
-      salaryMax: args.salaryMax,
-      currency: args.currency ?? "USD",
-      postingUrl: args.postingUrl,
-      source: args.source,
-      dateApplied: args.dateApplied,
-      stage: args.stage,
+      roleKey: normalizeKey(args.roleTitle),
+      stage,
+      currentStageEnteredAt: now,
       referralStatus: args.referralStatus ?? "not_checked",
-      applicationType: args.applicationType,
-      resumeId,
+      sourceSystem: args.sourceSystem ?? "manual",
+      compensationCurrency: args.compensationCurrency ?? "USD",
       qualityChecks: await getQualitySnapshot(ctx, user._id),
-      applicationDeadlineAt: args.applicationDeadlineAt,
-      takeHomeDeadlineAt: args.takeHomeDeadlineAt,
-      offerResponseDeadlineAt: args.offerResponseDeadlineAt,
-      offerComp: args.offerComp,
-      offerDecision: args.offerDecision,
-      jobDescriptionSnapshot: args.jobDescriptionSnapshot,
-      notes: args.notes,
-      closedAt: args.closedAt,
-      closedOutcome: args.closedOutcome,
-      rejectionStage: args.rejectionStage,
-      rejectionReason: args.rejectionReason,
-      rejectionFeedback: args.rejectionFeedback,
-      rejectionLessons: args.rejectionLessons,
-      reapplyAfter: args.reapplyAfter,
       archived: false,
       createdAt: now,
       updatedAt: now,
       lastActivityAt: now,
+      ...patch,
     })
 
-    await addActivity(ctx, user._id, applicationId, {
+    const eventId = await addActivity(ctx, {
+      userId: user._id,
+      applicationId,
       type: "created",
       title: "Application created",
-      source: "auto",
-      eventDate: now,
-      createdAt: now,
+      eventAt: now,
+      relatedEntityType: "application",
+      relatedEntityId: String(applicationId),
     })
+    await insertStageHistory(ctx, user._id, applicationId, stage, now, undefined, eventId)
+
+    if (currentResumeId) {
+      await setCurrentResumeLink(ctx, user._id, applicationId, currentResumeId, now)
+    }
 
     const application = await ctx.db.get(applicationId)
     if (application) {
@@ -253,72 +533,68 @@ export const update = mutation({
     if (!application || application.userId !== user._id) {
       throw new Error("Application not found")
     }
-    await ensureResumeOwnership(ctx, args.resumeId, user._id)
 
-    const now = new Date().toISOString()
+    await ensureResumeOwnership(ctx, args.currentResumeId, user._id)
+
+    const now = Date.now()
+    const nextStage = args.stage
+    if (nextStage && nextStage !== application.stage) {
+      await transitionStage(ctx, user._id, application, nextStage, now)
+    }
+
+    const archivedAt =
+      args.archived === undefined
+        ? undefined
+        : args.archived
+          ? application.archivedAt ?? now
+          : undefined
+
+    const nextClosedAt =
+      nextStage === "closed" && args.closedAt === undefined
+        ? now
+        : args.closedAt
+    const nextClosedDate =
+      nextStage === "closed" && args.closedDate === undefined
+        ? dateKeyFromTimestamp(nextClosedAt ?? now)
+        : args.closedDate
+
     const patch = {
-      companyName: args.companyName,
-      roleTitle: args.roleTitle,
-      location: args.location,
-      workArrangement: args.workArrangement,
-      salaryMin: args.salaryMin,
-      salaryMax: args.salaryMax,
-      currency: args.currency,
-      postingUrl: args.postingUrl,
-      source: args.source,
-      dateApplied: args.dateApplied,
-      stage: args.stage,
-      referralStatus: args.referralStatus,
-      applicationType: args.applicationType,
-      resumeId: args.resumeId,
-      qualityChecks: args.qualityChecks,
-      applicationDeadlineAt: args.applicationDeadlineAt,
-      takeHomeDeadlineAt: args.takeHomeDeadlineAt,
-      offerResponseDeadlineAt: args.offerResponseDeadlineAt,
-      offerComp: args.offerComp,
-      offerDecision: args.offerDecision,
-      jobDescriptionSnapshot: args.jobDescriptionSnapshot,
-      notes: args.notes,
-      closedAt: args.closedAt,
-      closedOutcome: args.closedOutcome,
-      rejectionStage: args.rejectionStage,
-      rejectionReason: args.rejectionReason,
-      rejectionFeedback: args.rejectionFeedback,
-      rejectionLessons: args.rejectionLessons,
-      reapplyAfter: args.reapplyAfter,
-      archived: args.archived,
+      ...buildApplicationPatch({
+        ...args,
+        archivedAt,
+        closedAt: nextClosedAt,
+        closedDate: nextClosedDate,
+      }),
+      currentStageEnteredAt:
+        nextStage && nextStage !== application.stage ? now : undefined,
       updatedAt: now,
       lastActivityAt: now,
     }
 
-    await ctx.db.patch(
-      args.id,
-      Object.fromEntries(
-        Object.entries(patch).filter((entry) => entry[1] !== undefined)
-      )
-    )
+    await ctx.db.patch(args.id, removeUndefined(patch))
+
+    if (
+      args.currentResumeId &&
+      args.currentResumeId !== application.currentResumeId
+    ) {
+      await setCurrentResumeLink(ctx, user._id, args.id, args.currentResumeId, now)
+    }
 
     const updated = await ctx.db.get(args.id)
-    if (args.stage && args.stage !== application.stage && updated) {
-      await addActivity(ctx, user._id, args.id, {
-        type: "stage_changed",
-        title: `Moved to ${args.stage}`,
-        description: `${application.stage} to ${args.stage}`,
-        source: "auto",
-        eventDate: now,
-        createdAt: now,
-        fromStage: application.stage,
-        toStage: args.stage,
-      })
-      await addMilestoneWins(ctx, user._id, updated, now)
-    } else {
-      await addActivity(ctx, user._id, args.id, {
-        type: "edited",
-        title: "Application updated",
-        source: "auto",
-        eventDate: now,
-        createdAt: now,
-      })
+    if (updated) {
+      if (nextStage && nextStage !== application.stage) {
+        await addMilestoneWins(ctx, user._id, updated, now)
+      } else {
+        await addActivity(ctx, {
+          userId: user._id,
+          applicationId: args.id,
+          type: "edited",
+          title: "Application updated",
+          eventAt: now,
+          relatedEntityType: "application",
+          relatedEntityId: String(args.id),
+        })
+      }
     }
   },
 })
@@ -338,23 +614,18 @@ export const moveStage = mutation({
       return
     }
 
-    const now = new Date().toISOString()
+    const now = Date.now()
+    await transitionStage(ctx, user._id, application, args.stage, now)
     await ctx.db.patch(args.id, {
       stage: args.stage,
+      currentStageEnteredAt: now,
+      dateAppliedDate:
+        application.dateAppliedDate ??
+        (args.stage === "saved" ? undefined : dateKeyFromTimestamp(now)),
       updatedAt: now,
       lastActivityAt: now,
     })
     const updated = await ctx.db.get(args.id)
-    await addActivity(ctx, user._id, args.id, {
-      type: "stage_changed",
-      title: `Moved to ${args.stage}`,
-      description: `${application.stage} to ${args.stage}`,
-      source: "auto",
-      eventDate: now,
-      createdAt: now,
-      fromStage: application.stage,
-      toStage: args.stage,
-    })
     if (updated) {
       await addMilestoneWins(ctx, user._id, updated, now)
     }
@@ -366,6 +637,7 @@ export const updateQualityCheck = mutation({
     id: v.id("applications"),
     key: v.string(),
     checked: v.boolean(),
+    notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
@@ -374,11 +646,111 @@ export const updateQualityCheck = mutation({
       throw new Error("Application not found")
     }
 
+    const now = Date.now()
     await ctx.db.patch(args.id, {
       qualityChecks: application.qualityChecks.map((check) =>
-        check.key === args.key ? { ...check, checked: args.checked } : check
+        check.key === args.key
+          ? {
+              ...check,
+              checked: args.checked,
+              checkedAt: args.checked ? now : undefined,
+              notes: args.notes ?? check.notes,
+            }
+          : check
       ),
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+      lastActivityAt: now,
     })
+  },
+})
+
+export const recordOffer = mutation({
+  args: {
+    applicationId: v.id("applications"),
+    offeredDate: v.optional(v.string()),
+    responseDeadlineDate: v.optional(v.string()),
+    baseAmount: v.optional(v.number()),
+    bonusAmount: v.optional(v.number()),
+    equitySummary: v.optional(v.string()),
+    currency: v.optional(v.string()),
+    period: v.optional(v.union(
+      v.literal("year"),
+      v.literal("day"),
+      v.literal("month"),
+      v.literal("hour"),
+      v.literal("contract"),
+      v.literal("unknown")
+    )),
+    compensationNotes: v.optional(v.string()),
+    decision: offerDecision,
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserDoc(ctx)
+    const application = await ctx.db.get(args.applicationId)
+    if (!application || application.userId !== user._id) {
+      throw new Error("Application not found")
+    }
+
+    const now = Date.now()
+    const existingOffers = await ctx.db
+      .query("applicationOffers")
+      .withIndex("by_applicationId", (q) => q.eq("applicationId", args.applicationId))
+      .collect()
+    await Promise.all(
+      existingOffers
+        .filter((offer) => offer.isCurrent)
+        .map((offer) => ctx.db.patch(offer._id, { isCurrent: false, updatedAt: now }))
+    )
+
+    const offerId = await ctx.db.insert("applicationOffers", {
+      userId: user._id,
+      applicationId: args.applicationId,
+      versionNumber: existingOffers.length + 1,
+      isCurrent: true,
+      offeredAt: now,
+      offeredDate: args.offeredDate ?? dateKeyFromTimestamp(now),
+      responseDeadlineDate: args.responseDeadlineDate,
+      baseAmount: args.baseAmount,
+      bonusAmount: args.bonusAmount,
+      equitySummary: args.equitySummary,
+      currency: args.currency ?? application.compensationCurrency ?? "USD",
+      period: args.period ?? application.compensationPeriod ?? "year",
+      compensationNotes: args.compensationNotes,
+      decision: args.decision,
+      decidedAt: ["accepted", "declined", "expired"].includes(args.decision) ? now : undefined,
+      notes: args.notes,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    if (application.stage !== "offer") {
+      await transitionStage(ctx, user._id, application, "offer", now)
+    }
+
+    await ctx.db.patch(args.applicationId, {
+      stage: "offer",
+      currentStageEnteredAt: application.stage === "offer" ? application.currentStageEnteredAt : now,
+      offerResponseDeadlineDate: args.responseDeadlineDate,
+      updatedAt: now,
+      lastActivityAt: now,
+    })
+
+    await addActivity(ctx, {
+      userId: user._id,
+      applicationId: args.applicationId,
+      type: "offer_recorded",
+      title: "Offer recorded",
+      eventAt: now,
+      relatedEntityType: "offer",
+      relatedEntityId: String(offerId),
+    })
+
+    const updated = await ctx.db.get(args.applicationId)
+    if (updated) {
+      await addMilestoneWins(ctx, user._id, updated, now)
+    }
+
+    return offerId
   },
 })

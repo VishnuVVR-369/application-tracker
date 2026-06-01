@@ -39,10 +39,21 @@ export const applicationType = v.union(
   v.literal("referral_backed")
 )
 
+export const compensationPeriod = v.union(
+  v.literal("hour"),
+  v.literal("day"),
+  v.literal("month"),
+  v.literal("year"),
+  v.literal("contract"),
+  v.literal("unknown")
+)
+
 export const offerDecision = v.union(
+  v.literal("pending"),
   v.literal("accepted"),
   v.literal("declined"),
-  v.literal("negotiating")
+  v.literal("negotiating"),
+  v.literal("expired")
 )
 
 export const closedOutcome = v.union(
@@ -57,7 +68,8 @@ export const rejectionStage = v.union(
   v.literal("recruiter_screen"),
   v.literal("technical_screen"),
   v.literal("onsite"),
-  v.literal("offer")
+  v.literal("offer"),
+  v.literal("other")
 )
 
 export const rejectionReason = v.union(
@@ -67,27 +79,43 @@ export const rejectionReason = v.union(
   v.literal("location"),
   v.literal("timing"),
   v.literal("competition"),
-  v.literal("unknown")
+  v.literal("unknown"),
+  v.literal("other")
+)
+
+export const sourceSystem = v.union(
+  v.literal("manual"),
+  v.literal("import"),
+  v.literal("browser_extension")
 )
 
 export const qualityCheckSnapshot = v.object({
   key: v.string(),
+  itemId: v.optional(v.id("qualityChecklistItems")),
   label: v.string(),
   checked: v.boolean(),
   weight: v.number(),
   source: v.union(v.literal("default"), v.literal("custom")),
+  sortOrder: v.number(),
+  checkedAt: v.optional(v.number()),
+  notes: v.optional(v.string()),
 })
 
-export const reminderType = v.union(
+export const taskKind = v.union(
   v.literal("follow_up"),
   v.literal("deadline"),
-  v.literal("general")
+  v.literal("general"),
+  v.literal("interview_prep"),
+  v.literal("interview_follow_up"),
+  v.literal("offer_response"),
+  v.literal("reapply")
 )
 
-export const reminderStatus = v.union(
+export const taskStatus = v.union(
   v.literal("pending"),
   v.literal("completed"),
-  v.literal("dismissed")
+  v.literal("dismissed"),
+  v.literal("canceled")
 )
 
 export const activityType = v.union(
@@ -95,9 +123,72 @@ export const activityType = v.union(
   v.literal("stage_changed"),
   v.literal("edited"),
   v.literal("resume_linked"),
-  v.literal("reminder_completed"),
+  v.literal("task_completed"),
   v.literal("note"),
+  v.literal("contact_added"),
+  v.literal("interview_scheduled"),
+  v.literal("offer_recorded"),
   v.literal("manual")
+)
+
+export const relatedEntityType = v.union(
+  v.literal("application"),
+  v.literal("resume"),
+  v.literal("task"),
+  v.literal("contact"),
+  v.literal("interview"),
+  v.literal("offer"),
+  v.literal("stage_history"),
+  v.literal("win"),
+  v.literal("quality")
+)
+
+export const contactRelationshipType = v.union(
+  v.literal("recruiter"),
+  v.literal("referrer"),
+  v.literal("hiring_manager"),
+  v.literal("interviewer"),
+  v.literal("employee"),
+  v.literal("other")
+)
+
+export const interviewType = v.union(
+  v.literal("recruiter_screen"),
+  v.literal("technical"),
+  v.literal("behavioral"),
+  v.literal("system_design"),
+  v.literal("hiring_manager"),
+  v.literal("onsite"),
+  v.literal("take_home"),
+  v.literal("panel"),
+  v.literal("other")
+)
+
+export const interviewFormat = v.union(
+  v.literal("phone"),
+  v.literal("video"),
+  v.literal("onsite"),
+  v.literal("take_home"),
+  v.literal("async"),
+  v.literal("other")
+)
+
+export const interviewStatus = v.union(
+  v.literal("scheduled"),
+  v.literal("completed"),
+  v.literal("canceled"),
+  v.literal("rescheduled"),
+  v.literal("no_show")
+)
+
+export const interviewResult = v.union(
+  v.literal("pending"),
+  v.literal("advanced"),
+  v.literal("rejected"),
+  v.literal("positive"),
+  v.literal("negative"),
+  v.literal("neutral"),
+  v.literal("unknown")
 )
 
 export const winType = v.union(
@@ -109,98 +200,289 @@ export const winType = v.union(
   v.literal("follow_up_completed")
 )
 
-const timestamp = v.union(v.string(), v.number())
+const resumeSnapshot = v.object({
+  label: v.string(),
+  fileName: v.string(),
+  storageId: v.id("_storage"),
+  mimeType: v.literal("application/pdf"),
+  sizeBytes: v.number(),
+})
 
 export default defineSchema({
   users: defineTable({
-    authUserId: v.string(),
+    authSubject: v.string(),
     tokenIdentifier: v.string(),
     name: v.optional(v.string()),
     email: v.optional(v.string()),
+    normalizedEmail: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    createdAt: timestamp,
-    updatedAt: timestamp,
+    lastSeenAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
   })
-    .index("by_authUserId", ["authUserId"])
-    .index("by_tokenIdentifier", ["tokenIdentifier"]),
+    .index("by_authSubject", ["authSubject"])
+    .index("by_tokenIdentifier", ["tokenIdentifier"])
+    .index("by_normalizedEmail", ["normalizedEmail"]),
 
   userSettings: defineTable({
     userId: v.id("users"),
     displayName: v.optional(v.string()),
-    theme: v.optional(v.union(v.literal("dark"), v.literal("light"), v.literal("system"))),
-    createdAt: timestamp,
-    updatedAt: timestamp,
+    theme: v.union(v.literal("dark"), v.literal("light"), v.literal("system")),
+    timezone: v.string(),
+    weekStartsOn: v.literal("monday"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
 
   applications: defineTable({
     userId: v.id("users"),
     companyName: v.string(),
+    companyKey: v.string(),
+    companyWebsite: v.optional(v.string()),
+    companyDomain: v.optional(v.string()),
     roleTitle: v.string(),
+    roleKey: v.string(),
     location: v.optional(v.string()),
     workArrangement: v.optional(workArrangement),
-    salaryMin: v.optional(v.number()),
-    salaryMax: v.optional(v.number()),
-    currency: v.optional(v.string()),
+    compensationMin: v.optional(v.number()),
+    compensationMax: v.optional(v.number()),
+    compensationCurrency: v.optional(v.string()),
+    compensationPeriod: v.optional(compensationPeriod),
+    compensationNotes: v.optional(v.string()),
     postingUrl: v.optional(v.string()),
+    postingUrlCanonical: v.optional(v.string()),
+    postingTitleSnapshot: v.optional(v.string()),
+    postingCompanySnapshot: v.optional(v.string()),
+    postingCapturedAt: v.optional(v.number()),
+    jobDescriptionSnapshot: v.optional(v.string()),
     source: v.optional(applicationSource),
-    dateApplied: v.optional(v.string()),
+    sourceDetail: v.optional(v.string()),
+    sourceSystem: v.optional(sourceSystem),
+    sourceExternalId: v.optional(v.string()),
+    dateSavedDate: v.optional(v.string()),
+    dateAppliedDate: v.optional(v.string()),
     stage: applicationStage,
+    currentStageEnteredAt: v.number(),
     referralStatus: v.optional(referralStatus),
     applicationType: v.optional(applicationType),
-    resumeId: v.optional(v.id("resumes")),
+    currentResumeId: v.optional(v.id("resumes")),
     qualityChecks: v.array(qualityCheckSnapshot),
-    applicationDeadlineAt: v.optional(v.string()),
-    takeHomeDeadlineAt: v.optional(v.string()),
-    offerResponseDeadlineAt: v.optional(v.string()),
-    offerComp: v.optional(v.string()),
-    offerDecision: v.optional(offerDecision),
-    jobDescriptionSnapshot: v.optional(v.string()),
+    applicationDeadlineDate: v.optional(v.string()),
+    takeHomeDeadlineDate: v.optional(v.string()),
+    offerResponseDeadlineDate: v.optional(v.string()),
     notes: v.optional(v.string()),
-    closedAt: v.optional(v.string()),
+    closedAt: v.optional(v.number()),
+    closedDate: v.optional(v.string()),
     closedOutcome: v.optional(closedOutcome),
     rejectionStage: v.optional(rejectionStage),
+    rejectionStageDetail: v.optional(v.string()),
     rejectionReason: v.optional(rejectionReason),
+    rejectionReasonDetail: v.optional(v.string()),
     rejectionFeedback: v.optional(v.string()),
     rejectionLessons: v.optional(v.string()),
-    reapplyAfter: v.optional(v.string()),
+    reapplyAfterDate: v.optional(v.string()),
     archived: v.boolean(),
-    createdAt: v.string(),
-    updatedAt: v.string(),
-    lastActivityAt: v.optional(v.string()),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    lastActivityAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_and_archived", ["userId", "archived"])
     .index("by_userId_and_stage", ["userId", "stage"])
+    .index("by_userId_and_archived_and_stage", ["userId", "archived", "stage"])
+    .index("by_userId_and_companyKey", ["userId", "companyKey"])
+    .index("by_userId_and_roleKey", ["userId", "roleKey"])
+    .index("by_userId_and_postingUrlCanonical", ["userId", "postingUrlCanonical"])
     .index("by_userId_and_source", ["userId", "source"])
     .index("by_userId_and_referralStatus", ["userId", "referralStatus"])
-    .index("by_userId_and_resumeId", ["userId", "resumeId"])
-    .index("by_userId_and_applicationDeadlineAt", [
+    .index("by_userId_and_currentResumeId", ["userId", "currentResumeId"])
+    .index("by_userId_and_dateAppliedDate", ["userId", "dateAppliedDate"])
+    .index("by_userId_and_applicationDeadlineDate", ["userId", "applicationDeadlineDate"])
+    .index("by_userId_and_takeHomeDeadlineDate", ["userId", "takeHomeDeadlineDate"])
+    .index("by_userId_and_offerResponseDeadlineDate", ["userId", "offerResponseDeadlineDate"])
+    .index("by_userId_and_reapplyAfterDate", ["userId", "reapplyAfterDate"])
+    .index("by_userId_and_lastActivityAt", ["userId", "lastActivityAt"])
+    .index("by_userId_and_sourceSystem_and_sourceExternalId", [
       "userId",
-      "applicationDeadlineAt",
-    ])
-    .index("by_userId_and_takeHomeDeadlineAt", ["userId", "takeHomeDeadlineAt"])
-    .index("by_userId_and_offerResponseDeadlineAt", [
-      "userId",
-      "offerResponseDeadlineAt",
-    ])
-    .index("by_userId_and_reapplyAfter", ["userId", "reapplyAfter"]),
+      "sourceSystem",
+      "sourceExternalId",
+    ]),
+
+  applicationStageHistory: defineTable({
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    stage: applicationStage,
+    enteredAt: v.number(),
+    exitedAt: v.optional(v.number()),
+    enteredFromStage: v.optional(applicationStage),
+    exitedToStage: v.optional(applicationStage),
+    source: v.union(v.literal("user"), v.literal("system"), v.literal("import")),
+    activityEventId: v.optional(v.id("activityEvents")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_applicationId_and_enteredAt", ["applicationId", "enteredAt"])
+    .index("by_userId_and_stage", ["userId", "stage"])
+    .index("by_userId_and_enteredAt", ["userId", "enteredAt"])
+    .index("by_userId_and_exitedAt", ["userId", "exitedAt"]),
+
+  activityEvents: defineTable({
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    type: activityType,
+    title: v.string(),
+    description: v.optional(v.string()),
+    source: v.union(v.literal("auto"), v.literal("manual")),
+    actorType: v.union(v.literal("user"), v.literal("system")),
+    actorUserId: v.optional(v.id("users")),
+    eventAt: v.number(),
+    eventDate: v.optional(v.string()),
+    relatedEntityType: v.optional(relatedEntityType),
+    relatedEntityId: v.optional(v.string()),
+    metadataJson: v.optional(v.string()),
+    dedupeKey: v.optional(v.string()),
+    supersededAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_eventAt", ["userId", "eventAt"])
+    .index("by_applicationId_and_eventAt", ["applicationId", "eventAt"])
+    .index("by_userId_and_relatedEntity", ["userId", "relatedEntityType", "relatedEntityId"])
+    .index("by_userId_and_dedupeKey", ["userId", "dedupeKey"]),
+
+  applicationContacts: defineTable({
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    name: v.string(),
+    normalizedName: v.optional(v.string()),
+    relationshipType: contactRelationshipType,
+    relationshipDetail: v.optional(v.string()),
+    roleTitle: v.optional(v.string()),
+    email: v.optional(v.string()),
+    normalizedEmail: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    archived: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_relationshipType", ["userId", "relationshipType"])
+    .index("by_userId_and_normalizedEmail", ["userId", "normalizedEmail"])
+    .index("by_userId_and_archived", ["userId", "archived"]),
+
+  applicationInterviews: defineTable({
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    roundNumber: v.optional(v.number()),
+    roundLabel: v.optional(v.string()),
+    interviewType: v.optional(interviewType),
+    interviewTypeDetail: v.optional(v.string()),
+    format: v.optional(interviewFormat),
+    formatDetail: v.optional(v.string()),
+    status: interviewStatus,
+    scheduledAt: v.optional(v.number()),
+    scheduledDate: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    durationMinutes: v.optional(v.number()),
+    contactIds: v.array(v.id("applicationContacts")),
+    prepNotes: v.optional(v.string()),
+    questions: v.optional(v.string()),
+    feedback: v.optional(v.string()),
+    result: v.optional(interviewResult),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    canceledAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_userId_and_scheduledAt", ["userId", "scheduledAt"])
+    .index("by_userId_and_scheduledDate", ["userId", "scheduledDate"])
+    .index("by_applicationId_and_scheduledAt", ["applicationId", "scheduledAt"]),
+
+  applicationOffers: defineTable({
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    versionNumber: v.number(),
+    isCurrent: v.boolean(),
+    offeredAt: v.optional(v.number()),
+    offeredDate: v.optional(v.string()),
+    responseDeadlineDate: v.optional(v.string()),
+    baseAmount: v.optional(v.number()),
+    bonusAmount: v.optional(v.number()),
+    equitySummary: v.optional(v.string()),
+    currency: v.optional(v.string()),
+    period: v.optional(v.union(
+      v.literal("year"),
+      v.literal("day"),
+      v.literal("month"),
+      v.literal("hour"),
+      v.literal("contract"),
+      v.literal("unknown")
+    )),
+    compensationNotes: v.optional(v.string()),
+    decision: offerDecision,
+    decidedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_applicationId_and_versionNumber", ["applicationId", "versionNumber"])
+    .index("by_userId_and_decision", ["userId", "decision"])
+    .index("by_userId_and_responseDeadlineDate", ["userId", "responseDeadlineDate"])
+    .index("by_userId_and_isCurrent", ["userId", "isCurrent"]),
 
   resumes: defineTable({
     userId: v.id("users"),
     label: v.string(),
     fileName: v.string(),
     storageId: v.id("_storage"),
-    mimeType: v.string(),
+    mimeType: v.literal("application/pdf"),
     sizeBytes: v.number(),
+    fileHash: v.optional(v.string()),
     notes: v.optional(v.string()),
     isDefault: v.boolean(),
+    defaultedAt: v.optional(v.number()),
     archived: v.boolean(),
-    createdAt: v.string(),
-    updatedAt: v.string(),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_and_archived", ["userId", "archived"])
-    .index("by_userId_and_isDefault", ["userId", "isDefault"]),
+    .index("by_userId_and_isDefault", ["userId", "isDefault"])
+    .index("by_userId_and_fileHash", ["userId", "fileHash"]),
+
+  applicationResumeLinks: defineTable({
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    resumeId: v.id("resumes"),
+    isCurrent: v.boolean(),
+    linkedAt: v.number(),
+    unlinkedAt: v.optional(v.number()),
+    resumeSnapshot,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_resumeId", ["userId", "resumeId"])
+    .index("by_userId_and_applicationId_and_isCurrent", [
+      "userId",
+      "applicationId",
+      "isCurrent",
+    ]),
 
   qualityChecklistItems: defineTable({
     userId: v.id("users"),
@@ -211,48 +493,47 @@ export default defineSchema({
     weight: v.number(),
     sortOrder: v.number(),
     enabled: v.boolean(),
-    createdAt: v.string(),
-    updatedAt: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_and_enabled", ["userId", "enabled"]),
+    .index("by_userId_and_enabled", ["userId", "enabled"])
+    .index("by_userId_and_sortOrder", ["userId", "sortOrder"])
+    .index("by_userId_and_key", ["userId", "key"]),
 
-  reminders: defineTable({
+  tasks: defineTable({
     userId: v.id("users"),
     applicationId: v.optional(v.id("applications")),
+    relatedInterviewId: v.optional(v.id("applicationInterviews")),
+    relatedOfferId: v.optional(v.id("applicationOffers")),
+    kind: taskKind,
+    kindDetail: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
-    dueAt: v.string(),
-    status: reminderStatus,
-    reminderType,
-    createdAt: v.string(),
-    completedAt: v.optional(v.string()),
-    dismissedAt: v.optional(v.string()),
-  })
-    .index("by_userId", ["userId"])
-    .index("by_userId_and_status", ["userId", "status"])
-    .index("by_userId_and_status_and_dueAt", ["userId", "status", "dueAt"])
-    .index("by_applicationId", ["applicationId"]),
-
-  activityEvents: defineTable({
-    userId: v.id("users"),
-    applicationId: v.id("applications"),
-    type: activityType,
-    title: v.string(),
-    description: v.optional(v.string()),
-    source: v.union(v.literal("auto"), v.literal("manual")),
-    eventDate: v.string(),
-    createdAt: v.string(),
-    fromStage: v.optional(applicationStage),
-    toStage: v.optional(applicationStage),
+    dueAt: v.optional(v.number()),
+    dueDate: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    status: taskStatus,
+    source: v.union(v.literal("manual"), v.literal("system"), v.literal("deadline")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()),
+    canceledAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
-    .index("by_userId_and_eventDate", ["userId", "eventDate"]),
+    .index("by_relatedInterviewId", ["relatedInterviewId"])
+    .index("by_relatedOfferId", ["relatedOfferId"])
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_userId_and_status_and_dueAt", ["userId", "status", "dueAt"])
+    .index("by_userId_and_status_and_dueDate", ["userId", "status", "dueDate"])
+    .index("by_userId_and_kind", ["userId", "kind"]),
 
   weeklyGoals: defineTable({
     userId: v.id("users"),
-    weekStart: v.string(),
+    weekStartDate: v.string(),
+    timezone: v.string(),
     applicationsSentTarget: v.number(),
     followUpsSentTarget: v.number(),
     interviewsReachedTarget: v.number(),
@@ -260,11 +541,11 @@ export default defineSchema({
     manualResumeImprovements: v.number(),
     lessonsLearned: v.optional(v.string()),
     nextWeekFocus: v.optional(v.string()),
-    createdAt: v.string(),
-    updatedAt: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_and_weekStart", ["userId", "weekStart"]),
+    .index("by_userId_and_weekStartDate", ["userId", "weekStartDate"]),
 
   winLogEntries: defineTable({
     userId: v.id("users"),
@@ -272,10 +553,23 @@ export default defineSchema({
     type: winType,
     title: v.string(),
     notes: v.optional(v.string()),
-    occurredAt: v.string(),
+    occurredAt: v.number(),
+    occurredDate: v.string(),
     source: v.union(v.literal("auto"), v.literal("manual")),
-    createdAt: v.string(),
+    relatedEntityType: v.optional(v.union(
+      v.literal("application"),
+      v.literal("task"),
+      v.literal("interview"),
+      v.literal("offer"),
+      v.literal("resume")
+    )),
+    relatedEntityId: v.optional(v.string()),
+    dedupeKey: v.optional(v.string()),
+    createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_and_occurredAt", ["userId", "occurredAt"]),
+    .index("by_userId_and_occurredAt", ["userId", "occurredAt"])
+    .index("by_userId_and_occurredDate", ["userId", "occurredDate"])
+    .index("by_userId_and_type", ["userId", "type"])
+    .index("by_userId_and_dedupeKey", ["userId", "dedupeKey"]),
 })

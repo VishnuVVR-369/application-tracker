@@ -11,33 +11,62 @@ export function addDays(date: Date, days: number) {
   return next
 }
 
-export function formatShortDate(dateIso?: string) {
-  if (!dateIso) {
+export function dateValueToDate(value?: string | number | Date) {
+  if (value === undefined) {
+    return undefined
+  }
+  if (value instanceof Date) {
+    return value
+  }
+  if (typeof value === "number") {
+    return new Date(value)
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00`)
+  }
+  return new Date(value)
+}
+
+export function formatShortDate(value?: string | number | Date) {
+  const date = dateValueToDate(value)
+  if (!date || Number.isNaN(date.getTime())) {
     return "Not set"
   }
 
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-  }).format(new Date(dateIso))
+  }).format(date)
 }
 
-export function daysBetween(startIso?: string, endIso?: string) {
-  if (!startIso || !endIso) {
+export function daysBetween(start?: string | number | Date, end?: string | number | Date) {
+  const startDate = dateValueToDate(start)
+  const endDate = dateValueToDate(end)
+  if (!startDate || !endDate) {
     return undefined
   }
 
-  const start = new Date(startIso).getTime()
-  const end = new Date(endIso).getTime()
-
-  return Math.max(0, Math.round((end - start) / (24 * 60 * 60 * 1000)))
+  return Math.max(
+    0,
+    Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000))
+  )
 }
 
-export function isDateInRange(dateIso: string | undefined, startIso: string, endIso: string) {
-  if (!dateIso) {
+export function isDateInRange(
+  value: string | number | Date | undefined,
+  start: string | number | Date,
+  end: string | number | Date
+) {
+  const date = dateValueToDate(value)
+  const startDate = dateValueToDate(start)
+  const endDate = dateValueToDate(end)
+  if (!date || !startDate || !endDate) {
     return false
   }
 
-  const value = new Date(dateIso).getTime()
-  return value >= new Date(startIso).getTime() && value <= new Date(endIso).getTime()
+  return date.getTime() >= startDate.getTime() && date.getTime() <= endDate.getTime()
+}
+
+export function dateKeyFromTimestamp(timestamp: number) {
+  return new Date(timestamp).toISOString().slice(0, 10)
 }

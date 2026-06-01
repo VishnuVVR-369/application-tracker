@@ -11,12 +11,15 @@ import {
 const baseApplication: ApplicationRecord = {
   id: "app-1",
   companyName: "Acme",
+  companyKey: "acme",
   roleTitle: "Engineer",
+  roleKey: "engineer",
   stage: "saved",
+  currentStageEnteredAt: Date.parse("2026-06-01T00:00:00.000Z"),
   qualityChecks: [],
   archived: false,
-  createdAt: "2026-06-01T00:00:00.000Z",
-  updatedAt: "2026-06-01T00:00:00.000Z",
+  createdAt: Date.parse("2026-06-01T00:00:00.000Z"),
+  updatedAt: Date.parse("2026-06-01T00:00:00.000Z"),
 }
 
 describe("application-model", () => {
@@ -47,4 +50,3 @@ describe("application-model", () => {
     ).toBe(2)
   })
 })
-

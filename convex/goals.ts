@@ -1,14 +1,24 @@
 import { v } from "convex/values"
 
 import type { Id } from "./_generated/dataModel"
-import { mutation, query } from "./_generated/server"
+import { dateKeyFromTimestamp } from "./model"
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { winType } from "./schema"
 import { getCurrentUserDoc } from "./users"
 
-function defaultGoal(weekStart: string, userId: Id<"users">, now: string) {
+async function getUserTimezone(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
+  const settings = await ctx.db
+    .query("userSettings")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique()
+  return settings?.timezone ?? "UTC"
+}
+
+function defaultGoal(weekStartDate: string, userId: Id<"users">, timezone: string, now: number) {
   return {
     userId,
-    weekStart,
+    weekStartDate,
+    timezone,
     applicationsSentTarget: 10,
     followUpsSentTarget: 5,
     interviewsReachedTarget: 2,
@@ -20,13 +30,13 @@ function defaultGoal(weekStart: string, userId: Id<"users">, now: string) {
 }
 
 export const getByWeek = query({
-  args: { weekStart: v.string() },
+  args: { weekStartDate: v.string() },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
     return await ctx.db
       .query("weeklyGoals")
-      .withIndex("by_userId_and_weekStart", (q) =>
-        q.eq("userId", user._id).eq("weekStart", args.weekStart)
+      .withIndex("by_userId_and_weekStartDate", (q) =>
+        q.eq("userId", user._id).eq("weekStartDate", args.weekStartDate)
       )
       .unique()
   },
@@ -34,7 +44,7 @@ export const getByWeek = query({
 
 export const upsert = mutation({
   args: {
-    weekStart: v.string(),
+    weekStartDate: v.string(),
     applicationsSentTarget: v.optional(v.number()),
     followUpsSentTarget: v.optional(v.number()),
     interviewsReachedTarget: v.optional(v.number()),
@@ -47,11 +57,11 @@ export const upsert = mutation({
     const user = await getCurrentUserDoc(ctx)
     const existing = await ctx.db
       .query("weeklyGoals")
-      .withIndex("by_userId_and_weekStart", (q) =>
-        q.eq("userId", user._id).eq("weekStart", args.weekStart)
+      .withIndex("by_userId_and_weekStartDate", (q) =>
+        q.eq("userId", user._id).eq("weekStartDate", args.weekStartDate)
       )
       .unique()
-    const now = new Date().toISOString()
+    const now = Date.now()
     const patch = Object.fromEntries(
       Object.entries({
         applicationsSentTarget: args.applicationsSentTarget,
@@ -67,7 +77,12 @@ export const upsert = mutation({
 
     if (!existing) {
       return await ctx.db.insert("weeklyGoals", {
-        ...defaultGoal(args.weekStart, user._id, now),
+        ...defaultGoal(
+          args.weekStartDate,
+          user._id,
+          await getUserTimezone(ctx, user._id),
+          now
+        ),
         ...patch,
       })
     }
@@ -83,7 +98,8 @@ export const addWin = mutation({
     type: winType,
     title: v.string(),
     notes: v.optional(v.string()),
-    occurredAt: v.string(),
+    occurredAt: v.optional(v.number()),
+    occurredDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
@@ -94,15 +110,19 @@ export const addWin = mutation({
       }
     }
 
+    const occurredAt = args.occurredAt ?? Date.now()
     return await ctx.db.insert("winLogEntries", {
       userId: user._id,
       applicationId: args.applicationId,
       type: args.type,
       title: args.title,
       notes: args.notes,
-      occurredAt: args.occurredAt,
+      occurredAt,
+      occurredDate: args.occurredDate ?? dateKeyFromTimestamp(occurredAt),
       source: "manual",
-      createdAt: new Date().toISOString(),
+      relatedEntityType: args.applicationId ? "application" : undefined,
+      relatedEntityId: args.applicationId ? String(args.applicationId) : undefined,
+      createdAt: Date.now(),
     })
   },
 })

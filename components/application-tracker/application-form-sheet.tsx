@@ -58,23 +58,23 @@ export function ApplicationFormSheet({
   const [form, setForm] = React.useState({
     companyName: application?.companyName ?? "",
     roleTitle: application?.roleTitle ?? "",
+    companyWebsite: application?.companyWebsite ?? "",
     location: application?.location ?? "",
     workArrangement: application?.workArrangement ?? "",
-    salaryMin: application?.salaryMin?.toString() ?? "",
-    salaryMax: application?.salaryMax?.toString() ?? "",
-    currency: application?.currency ?? "USD",
+    compensationMin: application?.compensationMin?.toString() ?? "",
+    compensationMax: application?.compensationMax?.toString() ?? "",
+    compensationCurrency: application?.compensationCurrency ?? "USD",
     postingUrl: application?.postingUrl ?? "",
     source: application?.source ?? "",
-    dateApplied: application?.dateApplied ?? "",
+    sourceDetail: application?.sourceDetail ?? "",
+    dateAppliedDate: application?.dateAppliedDate ?? "",
     stage: application?.stage ?? ("saved" as ApplicationStage),
     referralStatus: application?.referralStatus ?? "not_checked",
     applicationType: application?.applicationType ?? "",
-    resumeId: application?.resumeId ?? "",
-    applicationDeadlineAt: application?.applicationDeadlineAt?.slice(0, 10) ?? "",
-    takeHomeDeadlineAt: application?.takeHomeDeadlineAt?.slice(0, 10) ?? "",
-    offerResponseDeadlineAt: application?.offerResponseDeadlineAt?.slice(0, 10) ?? "",
-    offerComp: application?.offerComp ?? "",
-    offerDecision: application?.offerDecision ?? "",
+    currentResumeId: application?.currentResumeId ?? "",
+    applicationDeadlineDate: application?.applicationDeadlineDate ?? "",
+    takeHomeDeadlineDate: application?.takeHomeDeadlineDate ?? "",
+    offerResponseDeadlineDate: application?.offerResponseDeadlineDate ?? "",
     jobDescriptionSnapshot: application?.jobDescriptionSnapshot ?? "",
     notes: application?.notes ?? "",
   })
@@ -90,29 +90,23 @@ export function ApplicationFormSheet({
     const payload = compact({
       companyName: form.companyName,
       roleTitle: form.roleTitle,
+      companyWebsite: form.companyWebsite,
       location: form.location,
       workArrangement: form.workArrangement,
-      salaryMin: form.salaryMin ? Number(form.salaryMin) : undefined,
-      salaryMax: form.salaryMax ? Number(form.salaryMax) : undefined,
-      currency: form.currency,
+      compensationMin: form.compensationMin ? Number(form.compensationMin) : undefined,
+      compensationMax: form.compensationMax ? Number(form.compensationMax) : undefined,
+      compensationCurrency: form.compensationCurrency,
       postingUrl: form.postingUrl,
       source: form.source,
-      dateApplied: form.dateApplied,
+      sourceDetail: form.sourceDetail,
+      dateAppliedDate: form.dateAppliedDate,
       stage: form.stage,
       referralStatus: form.referralStatus,
       applicationType: form.applicationType,
-      resumeId: form.resumeId ? (form.resumeId as Id<"resumes">) : undefined,
-      applicationDeadlineAt: form.applicationDeadlineAt
-        ? new Date(`${form.applicationDeadlineAt}T12:00:00`).toISOString()
-        : undefined,
-      takeHomeDeadlineAt: form.takeHomeDeadlineAt
-        ? new Date(`${form.takeHomeDeadlineAt}T12:00:00`).toISOString()
-        : undefined,
-      offerResponseDeadlineAt: form.offerResponseDeadlineAt
-        ? new Date(`${form.offerResponseDeadlineAt}T12:00:00`).toISOString()
-        : undefined,
-      offerComp: form.offerComp,
-      offerDecision: form.offerDecision,
+      currentResumeId: form.currentResumeId ? (form.currentResumeId as Id<"resumes">) : undefined,
+      applicationDeadlineDate: form.applicationDeadlineDate,
+      takeHomeDeadlineDate: form.takeHomeDeadlineDate,
+      offerResponseDeadlineDate: form.offerResponseDeadlineDate,
       jobDescriptionSnapshot: form.jobDescriptionSnapshot,
       notes: form.notes,
     }) as Parameters<typeof createApplication>[0]
@@ -174,7 +168,7 @@ export function ApplicationFormSheet({
               </Select>
             </Field>
             <Field label="Linked resume">
-              <Select value={form.resumeId} onChange={(value) => updateField("resumeId", value)}>
+              <Select value={form.currentResumeId} onChange={(value) => updateField("currentResumeId", value)}>
                 <option value="">Use default resume</option>
                 {resumes
                   .filter((resume) => !resume.archived)
@@ -211,27 +205,35 @@ export function ApplicationFormSheet({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Salary min">
+            <Field label="Comp min">
               <Input
                 type="number"
-                value={form.salaryMin}
-                onChange={(event) => updateField("salaryMin", event.target.value)}
+                value={form.compensationMin}
+                onChange={(event) => updateField("compensationMin", event.target.value)}
               />
             </Field>
-            <Field label="Salary max">
+            <Field label="Comp max">
               <Input
                 type="number"
-                value={form.salaryMax}
-                onChange={(event) => updateField("salaryMax", event.target.value)}
+                value={form.compensationMax}
+                onChange={(event) => updateField("compensationMax", event.target.value)}
               />
             </Field>
             <Field label="Currency">
               <Input
-                value={form.currency}
-                onChange={(event) => updateField("currency", event.target.value)}
+                value={form.compensationCurrency}
+                onChange={(event) => updateField("compensationCurrency", event.target.value)}
               />
             </Field>
           </div>
+
+          <Field label="Company website">
+            <Input
+              type="url"
+              value={form.companyWebsite}
+              onChange={(event) => updateField("companyWebsite", event.target.value)}
+            />
+          </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Source">
@@ -275,8 +277,8 @@ export function ApplicationFormSheet({
             <Field label="Date applied">
               <Input
                 type="date"
-                value={form.dateApplied}
-                onChange={(event) => updateField("dateApplied", event.target.value)}
+                value={form.dateAppliedDate}
+                onChange={(event) => updateField("dateAppliedDate", event.target.value)}
               />
             </Field>
           </div>
@@ -294,44 +296,23 @@ export function ApplicationFormSheet({
             <Field label="Apply by">
               <Input
                 type="date"
-                value={form.applicationDeadlineAt}
-                onChange={(event) => updateField("applicationDeadlineAt", event.target.value)}
+                value={form.applicationDeadlineDate}
+                onChange={(event) => updateField("applicationDeadlineDate", event.target.value)}
               />
             </Field>
             <Field label="Take-home by">
               <Input
                 type="date"
-                value={form.takeHomeDeadlineAt}
-                onChange={(event) => updateField("takeHomeDeadlineAt", event.target.value)}
+                value={form.takeHomeDeadlineDate}
+                onChange={(event) => updateField("takeHomeDeadlineDate", event.target.value)}
               />
             </Field>
             <Field label="Offer response by">
               <Input
                 type="date"
-                value={form.offerResponseDeadlineAt}
-                onChange={(event) => updateField("offerResponseDeadlineAt", event.target.value)}
+                value={form.offerResponseDeadlineDate}
+                onChange={(event) => updateField("offerResponseDeadlineDate", event.target.value)}
               />
-            </Field>
-          </div>
-
-          <SectionLabel>Offer</SectionLabel>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Offer comp">
-              <Input
-                value={form.offerComp}
-                onChange={(event) => updateField("offerComp", event.target.value)}
-              />
-            </Field>
-            <Field label="Offer decision">
-              <Select
-                value={form.offerDecision}
-                onChange={(value) => updateField("offerDecision", value)}
-              >
-                <option value="">Not set</option>
-                <option value="accepted">Accepted</option>
-                <option value="declined">Declined</option>
-                <option value="negotiating">Negotiating</option>
-              </Select>
             </Field>
           </div>
 

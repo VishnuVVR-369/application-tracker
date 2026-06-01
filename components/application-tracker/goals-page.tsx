@@ -27,7 +27,7 @@ import { calculateGoalProgress, createDefaultWeeklyGoal, getWeekKey, WIN_TYPE_LA
 import { cn } from "@/lib/utils"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
 import { EmptyState, LoadingPanels, PageHeader, Panel, ProgressBar } from "./common"
-import { mapApplication, mapGoal, mapReminder, mapWin } from "./data-mappers"
+import { mapApplication, mapGoal, mapTask, mapWin } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
 const selectClass =
@@ -47,6 +47,7 @@ export function GoalsPage() {
   const upsertGoal = useMutation(api.goals.upsert)
   const addWin = useMutation(api.goals.addWin)
   const [weekStart, setWeekStart] = React.useState(getWeekKey())
+  const [fallbackCreatedAt] = React.useState(() => Date.now())
   const [winTitle, setWinTitle] = React.useState("")
   const [winType, setWinType] = React.useState<(typeof WIN_TYPES)[number]>("resume_improved")
   const [winApplicationId, setWinApplicationId] = React.useState("")
@@ -60,23 +61,23 @@ export function GoalsPage() {
   }
 
   const applications = data.applications.map(mapApplication)
-  const reminders = data.reminders.map(mapReminder)
+  const tasks = data.tasks.map(mapTask)
   const wins = data.winLogEntries.map(mapWin)
   const goal =
-    data.weeklyGoals.map(mapGoal).find((item) => item.weekStart === weekStart) ??
-    createDefaultWeeklyGoal(weekStart)
-  const progress = calculateGoalProgress({ goal, applications, reminders, wins })
+    data.weeklyGoals.map(mapGoal).find((item) => item.weekStartDate === weekStart) ??
+    createDefaultWeeklyGoal(weekStart, fallbackCreatedAt, data.settings?.timezone)
+  const progress = calculateGoalProgress({ goal, applications, tasks, wins })
   const completedCount = progress.filter((m) => m.percent >= 100).length
 
   async function updateTarget(key: string, value: string) {
-    await upsertGoal({ weekStart, [key]: Number(value) })
+    await upsertGoal({ weekStartDate: weekStart, [key]: Number(value) })
   }
 
   async function saveReview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     await upsertGoal({
-      weekStart,
+      weekStartDate: weekStart,
       lessonsLearned: String(formData.get("lessonsLearned") ?? ""),
       nextWeekFocus: String(formData.get("nextWeekFocus") ?? ""),
     })
@@ -89,7 +90,7 @@ export function GoalsPage() {
       type: winType,
       title: winTitle,
       applicationId: winApplicationId ? (winApplicationId as Id<"applications">) : undefined,
-      occurredAt: new Date().toISOString(),
+      occurredAt: Date.now(),
     })
     setWinTitle("")
     setWinApplicationId("")
@@ -168,7 +169,7 @@ export function GoalsPage() {
                   min={0}
                   value={goal.manualResumeImprovements}
                   onChange={(event) =>
-                    void upsertGoal({ weekStart, manualResumeImprovements: Number(event.target.value) })
+                    void upsertGoal({ weekStartDate: weekStart, manualResumeImprovements: Number(event.target.value) })
                   }
                   className="mt-2 max-w-32"
                 />

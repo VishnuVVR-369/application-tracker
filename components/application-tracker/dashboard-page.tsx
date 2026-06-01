@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 import { ApplicationFormSheet } from "./application-form-sheet"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
 import { EmptyState, LoadingPanels, PageHeader, Panel } from "./common"
-import { mapActivity, mapApplication, mapReminder } from "./data-mappers"
+import { mapActivity, mapApplication, mapTask } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
 const stageAccent: Record<ApplicationStage, string> = {
@@ -46,7 +46,7 @@ const attentionMeta: Record<
 
 export function DashboardPage() {
   const { data, isLoading } = useAppData()
-  const completeReminder = useMutation(api.reminders.complete)
+  const completeTask = useMutation(api.tasks.complete)
 
   if (isLoading) {
     return <LoadingPanels />
@@ -56,7 +56,7 @@ export function DashboardPage() {
     return (
       <EmptyState
         title="Sign in to load your tracker"
-        description="The app stores applications, resumes, reminders, goals, and settings in Convex."
+        description="The app stores applications, resumes, tasks, goals, and settings in Convex."
         href="/signin"
         actionLabel="Sign in"
       />
@@ -64,9 +64,9 @@ export function DashboardPage() {
   }
 
   const applications = data.applications.map(mapApplication)
-  const reminders = data.reminders.map(mapReminder)
+  const tasks = data.tasks.map(mapTask)
   const activityEvents = data.activityEvents.map(mapActivity)
-  const dashboard = buildDashboardModel({ applications, reminders, activityEvents })
+  const dashboard = buildDashboardModel({ applications, tasks, activityEvents })
   const totalApplications = applications.length
 
   return (
@@ -74,7 +74,7 @@ export function DashboardPage() {
       <PageHeader
         eyebrow="Dashboard"
         title="Today in your search"
-        description="A calm overview of stages, attention, deadlines, reminders, and recent activity."
+        description="A calm overview of stages, attention, deadlines, tasks, and recent activity."
         action={
           <ApplicationFormSheet
             resumes={data.resumes}
@@ -194,7 +194,7 @@ export function DashboardPage() {
                 <EmptyState
                   icon={CalendarClock}
                   title="No near-term due dates"
-                  description="Deadlines and pending reminders due within seven days appear here."
+                  description="Deadlines and pending tasks due within seven days appear here."
                 />
               )}
             </Panel>
@@ -220,7 +220,7 @@ export function DashboardPage() {
                       )}
                     </div>
                     <span className="shrink-0 font-mono text-xs tabular text-ink-500">
-                      {formatShortDate(event.eventDate)}
+                      {formatShortDate(event.eventAt)}
                     </span>
                   </Link>
                 ))}
@@ -229,35 +229,35 @@ export function DashboardPage() {
               <EmptyState
                 icon={Activity}
                 title="No activity yet"
-                description="Created applications, stage changes, resume links, reminders, and notes populate this timeline."
+                description="Created applications, stage changes, resume links, tasks, and notes populate this timeline."
               />
             )}
           </Panel>
         </StaggerItem>
 
-        {/* ── Reminder actions ─────────────────────────────────────────── */}
-        {reminders.some((reminder) => reminder.status === "pending") && (
+        {/* ── Task actions ─────────────────────────────────────────────── */}
+        {tasks.some((task) => task.status === "pending") && (
           <StaggerItem>
-            <Panel title="Reminder actions" icon={AlarmClock}>
+            <Panel title="Task actions" icon={AlarmClock}>
               <div className="grid gap-2">
-                {data.reminders
-                  .filter((reminder) => reminder.status === "pending")
+                {data.tasks
+                  .filter((task) => task.status === "pending")
                   .slice(0, 5)
-                  .map((reminder) => (
+                  .map((task) => (
                     <div
-                      key={reminder._id}
+                      key={task._id}
                       className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-1/60 p-3"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{reminder.title}</p>
+                        <p className="truncate text-sm font-medium">{task.title}</p>
                         <p className="font-mono text-xs tabular text-ink-500">
-                          {formatShortDate(reminder.dueAt)}
+                          {formatShortDate(task.dueAt ?? task.dueDate)}
                         </p>
                       </div>
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => void completeReminder({ id: reminder._id })}
+                        onClick={() => void completeTask({ id: task._id })}
                       >
                         <Check className="size-3.5" />
                         Complete

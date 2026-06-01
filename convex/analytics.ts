@@ -10,7 +10,7 @@ export const sourceData = query({
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
-    const [applications, activityEvents, resumes] = await Promise.all([
+    const [applications, activityEvents, resumes, stageHistory] = await Promise.all([
       ctx.db
         .query("applications")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
@@ -21,6 +21,10 @@ export const sourceData = query({
         .collect(),
       ctx.db
         .query("resumes")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("applicationStageHistory")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .collect(),
     ])
@@ -34,6 +38,7 @@ export const sourceData = query({
       allApplications: applications,
       activityEvents,
       resumes,
+      stageHistory,
     }
   },
 })

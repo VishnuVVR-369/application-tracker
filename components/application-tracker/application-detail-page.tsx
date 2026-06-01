@@ -55,7 +55,7 @@ import {
   StageBadge,
   StageSelect,
 } from "./common"
-import { mapActivity, mapApplication, mapReminder, mapResume } from "./data-mappers"
+import { mapActivity, mapApplication, mapOffer, mapResume, mapTask } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
 const selectClass =
@@ -66,7 +66,7 @@ const eventDot: Record<string, string> = {
   stage_changed: "bg-stage-interview",
   edited: "bg-status-info",
   resume_linked: "bg-brand",
-  reminder_completed: "bg-status-up",
+  task_completed: "bg-status-up",
   note: "bg-ink-500",
   manual: "bg-ink-500",
 }
@@ -77,26 +77,30 @@ export function ApplicationDetailPage({ id }: { id: string }) {
   const moveStage = useMutation(api.applications.moveStage)
   const updateQualityCheck = useMutation(api.applications.updateQualityCheck)
   const addManualActivity = useMutation(api.activity.addManual)
-  const createReminder = useMutation(api.reminders.create)
-  const completeReminder = useMutation(api.reminders.complete)
+  const createTask = useMutation(api.tasks.create)
+  const completeTask = useMutation(api.tasks.complete)
+  const recordOffer = useMutation(api.applications.recordOffer)
 
   const [note, setNote] = React.useState("")
   const [noteDescription, setNoteDescription] = React.useState("")
-  const [reminderTitle, setReminderTitle] = React.useState("")
-  const [reminderDue, setReminderDue] = React.useState("")
-  const [reminderType, setReminderType] = React.useState<"follow_up" | "deadline" | "general">("follow_up")
+  const [taskTitle, setTaskTitle] = React.useState("")
+  const [taskDue, setTaskDue] = React.useState("")
+  const [taskKind, setTaskKind] = React.useState<"follow_up" | "deadline" | "general">("follow_up")
   const [outcome, setOutcome] = React.useState({
     closedOutcome: "rejected",
     rejectionStage: "application_review",
     rejectionReason: "unknown",
     rejectionFeedback: "",
     rejectionLessons: "",
-    reapplyAfter: "",
+    reapplyAfterDate: "",
   })
   const [offer, setOffer] = React.useState({
-    offerComp: "",
-    offerDecision: "",
-    offerResponseDeadlineAt: "",
+    baseAmount: "",
+    bonusAmount: "",
+    equitySummary: "",
+    compensationNotes: "",
+    offerDecision: "pending",
+    offerResponseDeadlineDate: "",
   })
 
   if (isLoading) {
@@ -122,15 +126,18 @@ export function ApplicationDetailPage({ id }: { id: string }) {
   const application = mapApplication(applicationDoc)
   const applicationId = applicationDoc._id
   const resumes = data.resumes.map(mapResume)
-  const linkedResume = resumes.find((resume) => resume.id === application.resumeId)
+  const linkedResume = resumes.find((resume) => resume.id === application.currentResumeId)
+  const currentOffer = data.applicationOffers
+    .map(mapOffer)
+    .find((item) => item.applicationId === applicationId && item.isCurrent)
   const activity = data.activityEvents
     .filter((event) => event.applicationId === applicationId)
     .map(mapActivity)
-    .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime())
-  const reminders = data.reminders
-    .filter((reminder) => reminder.applicationId === applicationId)
-    .map(mapReminder)
-    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+    .sort((a, b) => b.eventAt - a.eventAt)
+  const tasks = data.tasks
+    .filter((task) => task.applicationId === applicationId)
+    .map(mapTask)
+    .sort((a, b) => String(a.dueDate ?? a.dueAt ?? "").localeCompare(String(b.dueDate ?? b.dueAt ?? "")))
   const qualityScore = calculateQualityScore(application.qualityChecks)
   const checkedCount = application.qualityChecks.filter((c) => c.checked).length
 
@@ -142,17 +149,17 @@ export function ApplicationDetailPage({ id }: { id: string }) {
     setNoteDescription("")
   }
 
-  async function saveReminder(event: React.FormEvent<HTMLFormElement>) {
+  async function saveTask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!reminderTitle.trim() || !reminderDue) return
-    await createReminder({
+    if (!taskTitle.trim() || !taskDue) return
+    await createTask({
       applicationId,
-      title: reminderTitle,
-      dueAt: new Date(`${reminderDue}T12:00:00`).toISOString(),
-      reminderType,
+      title: taskTitle,
+      dueDate: taskDue,
+      kind: taskKind,
     })
-    setReminderTitle("")
-    setReminderDue("")
+    setTaskTitle("")
+    setTaskDue("")
   }
 
   async function saveOutcome(event: React.FormEvent<HTMLFormElement>) {
@@ -160,26 +167,27 @@ export function ApplicationDetailPage({ id }: { id: string }) {
     await updateApplication({
       id: applicationId,
       stage: "closed",
-      closedAt: new Date().toISOString(),
+      closedAt: Date.now(),
+      closedDate: new Date().toISOString().slice(0, 10),
       closedOutcome: outcome.closedOutcome as (typeof CLOSED_OUTCOMES)[number],
       rejectionStage: outcome.rejectionStage as (typeof REJECTION_STAGES)[number],
       rejectionReason: outcome.rejectionReason as (typeof REJECTION_REASONS)[number],
       rejectionFeedback: outcome.rejectionFeedback || undefined,
       rejectionLessons: outcome.rejectionLessons || undefined,
-      reapplyAfter: outcome.reapplyAfter || undefined,
+      reapplyAfterDate: outcome.reapplyAfterDate || undefined,
     })
   }
 
   async function saveOffer(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await updateApplication({
-      id: applicationId,
-      stage: "offer",
-      offerComp: offer.offerComp || undefined,
-      offerDecision: offer.offerDecision ? (offer.offerDecision as (typeof OFFER_DECISIONS)[number]) : undefined,
-      offerResponseDeadlineAt: offer.offerResponseDeadlineAt
-        ? new Date(`${offer.offerResponseDeadlineAt}T12:00:00`).toISOString()
-        : undefined,
+    await recordOffer({
+      applicationId,
+      baseAmount: offer.baseAmount ? Number(offer.baseAmount) : undefined,
+      bonusAmount: offer.bonusAmount ? Number(offer.bonusAmount) : undefined,
+      equitySummary: offer.equitySummary || undefined,
+      compensationNotes: offer.compensationNotes || undefined,
+      decision: offer.offerDecision as (typeof OFFER_DECISIONS)[number],
+      responseDeadlineDate: offer.offerResponseDeadlineDate || undefined,
     })
   }
 
@@ -237,9 +245,9 @@ export function ApplicationDetailPage({ id }: { id: string }) {
               <Fact label="Location" value={application.location ?? "Not set"} />
               <Fact label="Salary" value={formatApplicationSalary(application)} />
               <Fact label="Source" value={application.source ? SOURCE_LABELS[application.source] : "Not set"} />
-              <Fact label="Applied" value={formatShortDate(application.dateApplied)} mono />
-              <Fact label="App deadline" value={formatShortDate(application.applicationDeadlineAt)} mono />
-              <Fact label="Take-home" value={formatShortDate(application.takeHomeDeadlineAt)} mono />
+              <Fact label="Applied" value={formatShortDate(application.dateAppliedDate)} mono />
+              <Fact label="App deadline" value={formatShortDate(application.applicationDeadlineDate)} mono />
+              <Fact label="Take-home" value={formatShortDate(application.takeHomeDeadlineDate)} mono />
             </div>
             <div className="mt-4 border-t border-line/70 pt-4">
               <Label className="micro-label">Move stage</Label>
@@ -333,7 +341,7 @@ export function ApplicationDetailPage({ id }: { id: string }) {
                   <div className="flex justify-between gap-3">
                     <p className="text-sm font-medium">{event.title}</p>
                     <span className="shrink-0 font-mono text-xs tabular text-ink-500">
-                      {formatShortDate(event.eventDate)}
+                      {formatShortDate(event.eventAt)}
                     </span>
                   </div>
                   {event.description && <p className="mt-0.5 text-xs text-ink-500">{event.description}</p>}
@@ -371,37 +379,37 @@ export function ApplicationDetailPage({ id }: { id: string }) {
             )}
           </Panel>
 
-          {/* Reminders */}
-          <Panel title="Deadlines & reminders" icon={Clock}>
+          {/* Tasks */}
+          <Panel title="Deadlines & tasks" icon={Clock}>
             <div className="grid gap-2">
-              {reminders.map((reminder) => (
+              {tasks.map((task) => (
                 <div
-                  key={reminder.id}
+                  key={task.id}
                   className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-1/60 p-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{reminder.title}</p>
+                    <p className="truncate text-sm font-medium">{task.title}</p>
                     <p className="flex items-center gap-1.5 font-mono text-xs tabular text-ink-500">
-                      {formatShortDate(reminder.dueAt)}
+                      {formatShortDate(task.dueAt ?? task.dueDate)}
                       <Badge
                         variant={
-                          reminder.status === "completed"
+                          task.status === "completed"
                             ? "success"
-                            : reminder.status === "pending"
+                            : task.status === "pending"
                               ? "warn"
                               : "outline"
                         }
                         className="h-4 px-1.5 text-[10px]"
                       >
-                        {reminder.status}
+                        {task.status}
                       </Badge>
                     </p>
                   </div>
-                  {reminder.status === "pending" && (
+                  {task.status === "pending" && (
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => void completeReminder({ id: reminder.id as Id<"reminders"> })}
+                      onClick={() => void completeTask({ id: task.id as Id<"tasks"> })}
                     >
                       <CheckCircle2 className="size-3.5" />
                       Complete
@@ -409,19 +417,19 @@ export function ApplicationDetailPage({ id }: { id: string }) {
                   )}
                 </div>
               ))}
-              {reminders.length === 0 && <p className="text-sm text-ink-300">No reminders for this application.</p>}
+              {tasks.length === 0 && <p className="text-sm text-ink-300">No tasks for this application.</p>}
             </div>
-            <form onSubmit={saveReminder} className="mt-4 grid gap-2 border-t border-line/70 pt-4">
+            <form onSubmit={saveTask} className="mt-4 grid gap-2 border-t border-line/70 pt-4">
               <Input
-                value={reminderTitle}
-                onChange={(event) => setReminderTitle(event.target.value)}
-                placeholder="Reminder title"
+                value={taskTitle}
+                onChange={(event) => setTaskTitle(event.target.value)}
+                placeholder="Task title"
               />
               <div className="grid grid-cols-[1fr_auto] gap-2">
-                <Input type="date" value={reminderDue} onChange={(event) => setReminderDue(event.target.value)} />
+                <Input type="date" value={taskDue} onChange={(event) => setTaskDue(event.target.value)} />
                 <select
-                  value={reminderType}
-                  onChange={(event) => setReminderType(event.target.value as typeof reminderType)}
+                  value={taskKind}
+                  onChange={(event) => setTaskKind(event.target.value as typeof taskKind)}
                   className={selectClass}
                 >
                   <option value="follow_up">Follow-up</option>
@@ -431,7 +439,7 @@ export function ApplicationDetailPage({ id }: { id: string }) {
               </div>
               <Button type="submit" variant="secondary">
                 <Plus className="size-4" />
-                Add reminder
+                Add task
               </Button>
             </form>
           </Panel>
@@ -440,15 +448,32 @@ export function ApplicationDetailPage({ id }: { id: string }) {
           <Panel title="Offer" icon={Award}>
             <form onSubmit={saveOffer} className="grid gap-2">
               <Input
-                value={offer.offerComp}
-                onChange={(event) => setOffer((current) => ({ ...current, offerComp: event.target.value }))}
-                placeholder={application.offerComp || "Comp summary (e.g. $160k + 0.2%)"}
+                type="number"
+                value={offer.baseAmount}
+                onChange={(event) => setOffer((current) => ({ ...current, baseAmount: event.target.value }))}
+                placeholder={currentOffer?.baseAmount?.toString() ?? "Base amount"}
+              />
+              <Input
+                type="number"
+                value={offer.bonusAmount}
+                onChange={(event) => setOffer((current) => ({ ...current, bonusAmount: event.target.value }))}
+                placeholder={currentOffer?.bonusAmount?.toString() ?? "Bonus amount"}
+              />
+              <Input
+                value={offer.equitySummary}
+                onChange={(event) => setOffer((current) => ({ ...current, equitySummary: event.target.value }))}
+                placeholder={currentOffer?.equitySummary ?? "Equity summary"}
+              />
+              <Input
+                value={offer.compensationNotes}
+                onChange={(event) => setOffer((current) => ({ ...current, compensationNotes: event.target.value }))}
+                placeholder={currentOffer?.compensationNotes ?? "Comp notes"}
               />
               <Input
                 type="date"
-                value={offer.offerResponseDeadlineAt}
+                value={offer.offerResponseDeadlineDate}
                 onChange={(event) =>
-                  setOffer((current) => ({ ...current, offerResponseDeadlineAt: event.target.value }))
+                  setOffer((current) => ({ ...current, offerResponseDeadlineDate: event.target.value }))
                 }
               />
               <select
@@ -518,8 +543,8 @@ export function ApplicationDetailPage({ id }: { id: string }) {
               />
               <Input
                 type="date"
-                value={outcome.reapplyAfter}
-                onChange={(event) => setOutcome((current) => ({ ...current, reapplyAfter: event.target.value }))}
+                value={outcome.reapplyAfterDate}
+                onChange={(event) => setOutcome((current) => ({ ...current, reapplyAfterDate: event.target.value }))}
               />
               <Button type="submit" variant="secondary">
                 <Send className="size-4" />

@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 
 import { mutation, query } from "./_generated/server"
+import { dateKeyFromTimestamp } from "./model"
 import { getCurrentUserDoc } from "./users"
 
 export const listForApplication = query({
@@ -14,7 +15,9 @@ export const listForApplication = query({
 
     return await ctx.db
       .query("activityEvents")
-      .withIndex("by_applicationId", (q) => q.eq("applicationId", args.applicationId))
+      .withIndex("by_applicationId_and_eventAt", (q) =>
+        q.eq("applicationId", args.applicationId)
+      )
       .collect()
   },
 })
@@ -24,6 +27,7 @@ export const addManual = mutation({
     applicationId: v.id("applications"),
     title: v.string(),
     description: v.optional(v.string()),
+    eventAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
@@ -32,7 +36,8 @@ export const addManual = mutation({
       throw new Error("Application not found")
     }
 
-    const now = new Date().toISOString()
+    const now = Date.now()
+    const eventAt = args.eventAt ?? now
     return await ctx.db.insert("activityEvents", {
       userId: user._id,
       applicationId: args.applicationId,
@@ -40,9 +45,13 @@ export const addManual = mutation({
       title: args.title,
       description: args.description,
       source: "manual",
-      eventDate: now,
+      actorType: "user",
+      actorUserId: user._id,
+      eventAt,
+      eventDate: dateKeyFromTimestamp(eventAt),
+      relatedEntityType: "application",
+      relatedEntityId: String(args.applicationId),
       createdAt: now,
     })
   },
 })
-

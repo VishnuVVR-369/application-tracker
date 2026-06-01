@@ -15,7 +15,7 @@ export const addItem = mutation({
       .query("qualityChecklistItems")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .collect()
-    const now = new Date().toISOString()
+    const now = Date.now()
     const keyBase = args.label
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -56,7 +56,7 @@ export const updateItem = mutation({
       description: args.description,
       weight: args.weight,
       enabled: args.enabled,
-      updatedAt: new Date().toISOString(),
+      updatedAt: Date.now(),
     })
   },
 })
@@ -81,7 +81,14 @@ export const reorderItem = mutation({
       return
     }
 
-    await ctx.db.patch(items[index]._id, { sortOrder: items[swapIndex].sortOrder })
-    await ctx.db.patch(items[swapIndex]._id, { sortOrder: items[index].sortOrder })
+    const now = Date.now()
+    await ctx.db.patch(items[index]._id, {
+      sortOrder: items[swapIndex].sortOrder,
+      updatedAt: now,
+    })
+    await ctx.db.patch(items[swapIndex]._id, {
+      sortOrder: items[index].sortOrder,
+      updatedAt: now,
+    })
   },
 })

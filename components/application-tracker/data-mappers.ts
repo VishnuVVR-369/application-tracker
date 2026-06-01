@@ -1,10 +1,15 @@
 import type { Doc } from "@/convex/_generated/dataModel"
 import type {
   ActivityEvent,
+  ApplicationContact,
+  ApplicationInterview,
+  ApplicationOffer,
   ApplicationRecord,
+  ApplicationResumeLink,
+  ApplicationStageHistory,
   QualityChecklistItem,
-  ReminderRecord,
   ResumeRecord,
+  TaskRecord,
   WeeklyGoal,
   WinLogEntry,
 } from "@/lib/application-model"
@@ -13,35 +18,52 @@ export function mapApplication(doc: Doc<"applications">): ApplicationRecord {
   return {
     id: doc._id,
     companyName: doc.companyName,
+    companyKey: doc.companyKey,
+    companyWebsite: doc.companyWebsite,
+    companyDomain: doc.companyDomain,
     roleTitle: doc.roleTitle,
+    roleKey: doc.roleKey,
     location: doc.location,
     workArrangement: doc.workArrangement,
-    salaryMin: doc.salaryMin,
-    salaryMax: doc.salaryMax,
-    currency: doc.currency,
+    compensationMin: doc.compensationMin,
+    compensationMax: doc.compensationMax,
+    compensationCurrency: doc.compensationCurrency,
+    compensationPeriod: doc.compensationPeriod,
+    compensationNotes: doc.compensationNotes,
     postingUrl: doc.postingUrl,
+    postingUrlCanonical: doc.postingUrlCanonical,
+    postingTitleSnapshot: doc.postingTitleSnapshot,
+    postingCompanySnapshot: doc.postingCompanySnapshot,
+    postingCapturedAt: doc.postingCapturedAt,
     source: doc.source,
-    dateApplied: doc.dateApplied,
+    sourceDetail: doc.sourceDetail,
+    sourceSystem: doc.sourceSystem,
+    sourceExternalId: doc.sourceExternalId,
+    dateSavedDate: doc.dateSavedDate,
+    dateAppliedDate: doc.dateAppliedDate,
     stage: doc.stage,
+    currentStageEnteredAt: doc.currentStageEnteredAt,
     referralStatus: doc.referralStatus,
     applicationType: doc.applicationType,
-    resumeId: doc.resumeId,
+    currentResumeId: doc.currentResumeId,
     qualityChecks: doc.qualityChecks,
-    applicationDeadlineAt: doc.applicationDeadlineAt,
-    takeHomeDeadlineAt: doc.takeHomeDeadlineAt,
-    offerResponseDeadlineAt: doc.offerResponseDeadlineAt,
-    offerComp: doc.offerComp,
-    offerDecision: doc.offerDecision,
+    applicationDeadlineDate: doc.applicationDeadlineDate,
+    takeHomeDeadlineDate: doc.takeHomeDeadlineDate,
+    offerResponseDeadlineDate: doc.offerResponseDeadlineDate,
     jobDescriptionSnapshot: doc.jobDescriptionSnapshot,
     notes: doc.notes,
     closedAt: doc.closedAt,
+    closedDate: doc.closedDate,
     closedOutcome: doc.closedOutcome,
     rejectionStage: doc.rejectionStage,
+    rejectionStageDetail: doc.rejectionStageDetail,
     rejectionReason: doc.rejectionReason,
+    rejectionReasonDetail: doc.rejectionReasonDetail,
     rejectionFeedback: doc.rejectionFeedback,
     rejectionLessons: doc.rejectionLessons,
-    reapplyAfter: doc.reapplyAfter,
+    reapplyAfterDate: doc.reapplyAfterDate,
     archived: doc.archived,
+    archivedAt: doc.archivedAt,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     lastActivityAt: doc.lastActivityAt,
@@ -56,26 +78,51 @@ export function mapResume(doc: Doc<"resumes">): ResumeRecord {
     storageId: doc.storageId,
     mimeType: doc.mimeType,
     sizeBytes: doc.sizeBytes,
+    fileHash: doc.fileHash,
     notes: doc.notes,
     isDefault: doc.isDefault,
+    defaultedAt: doc.defaultedAt,
     archived: doc.archived,
+    archivedAt: doc.archivedAt,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   }
 }
 
-export function mapReminder(doc: Doc<"reminders">): ReminderRecord {
+export function mapResumeLink(doc: Doc<"applicationResumeLinks">): ApplicationResumeLink {
   return {
     id: doc._id,
     applicationId: doc.applicationId,
+    resumeId: doc.resumeId,
+    isCurrent: doc.isCurrent,
+    linkedAt: doc.linkedAt,
+    unlinkedAt: doc.unlinkedAt,
+    resumeSnapshot: doc.resumeSnapshot,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapTask(doc: Doc<"tasks">): TaskRecord {
+  return {
+    id: doc._id,
+    applicationId: doc.applicationId,
+    relatedInterviewId: doc.relatedInterviewId,
+    relatedOfferId: doc.relatedOfferId,
     title: doc.title,
     description: doc.description,
     dueAt: doc.dueAt,
+    dueDate: doc.dueDate,
+    timezone: doc.timezone,
     status: doc.status,
-    reminderType: doc.reminderType,
+    kind: doc.kind,
+    kindDetail: doc.kindDetail,
+    source: doc.source,
     createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
     completedAt: doc.completedAt,
     dismissedAt: doc.dismissedAt,
+    canceledAt: doc.canceledAt,
   }
 }
 
@@ -87,17 +134,101 @@ export function mapActivity(doc: Doc<"activityEvents">): ActivityEvent {
     title: doc.title,
     description: doc.description,
     source: doc.source,
+    actorType: doc.actorType,
+    actorUserId: doc.actorUserId,
+    eventAt: doc.eventAt,
     eventDate: doc.eventDate,
+    relatedEntityType: doc.relatedEntityType,
+    relatedEntityId: doc.relatedEntityId,
+    metadataJson: doc.metadataJson,
+    dedupeKey: doc.dedupeKey,
+    supersededAt: doc.supersededAt,
     createdAt: doc.createdAt,
-    fromStage: doc.fromStage,
-    toStage: doc.toStage,
+  }
+}
+
+export function mapStageHistory(doc: Doc<"applicationStageHistory">): ApplicationStageHistory {
+  return {
+    id: doc._id,
+    applicationId: doc.applicationId,
+    stage: doc.stage,
+    enteredAt: doc.enteredAt,
+    exitedAt: doc.exitedAt,
+    enteredFromStage: doc.enteredFromStage,
+    exitedToStage: doc.exitedToStage,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapContact(doc: Doc<"applicationContacts">): ApplicationContact {
+  return {
+    id: doc._id,
+    applicationId: doc.applicationId,
+    name: doc.name,
+    relationshipType: doc.relationshipType,
+    relationshipDetail: doc.relationshipDetail,
+    roleTitle: doc.roleTitle,
+    email: doc.email,
+    phone: doc.phone,
+    linkedinUrl: doc.linkedinUrl,
+    notes: doc.notes,
+    archived: doc.archived,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapInterview(doc: Doc<"applicationInterviews">): ApplicationInterview {
+  return {
+    id: doc._id,
+    applicationId: doc.applicationId,
+    roundNumber: doc.roundNumber,
+    roundLabel: doc.roundLabel,
+    interviewType: doc.interviewType,
+    format: doc.format,
+    status: doc.status,
+    scheduledAt: doc.scheduledAt,
+    scheduledDate: doc.scheduledDate,
+    timezone: doc.timezone,
+    durationMinutes: doc.durationMinutes,
+    contactIds: doc.contactIds,
+    prepNotes: doc.prepNotes,
+    feedback: doc.feedback,
+    result: doc.result,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapOffer(doc: Doc<"applicationOffers">): ApplicationOffer {
+  return {
+    id: doc._id,
+    applicationId: doc.applicationId,
+    versionNumber: doc.versionNumber,
+    isCurrent: doc.isCurrent,
+    offeredAt: doc.offeredAt,
+    offeredDate: doc.offeredDate,
+    responseDeadlineDate: doc.responseDeadlineDate,
+    baseAmount: doc.baseAmount,
+    bonusAmount: doc.bonusAmount,
+    equitySummary: doc.equitySummary,
+    currency: doc.currency,
+    period: doc.period,
+    compensationNotes: doc.compensationNotes,
+    decision: doc.decision,
+    decidedAt: doc.decidedAt,
+    notes: doc.notes,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
   }
 }
 
 export function mapGoal(doc: Doc<"weeklyGoals">): WeeklyGoal {
   return {
     id: doc._id,
-    weekStart: doc.weekStart,
+    weekStartDate: doc.weekStartDate,
+    timezone: doc.timezone,
     applicationsSentTarget: doc.applicationsSentTarget,
     followUpsSentTarget: doc.followUpsSentTarget,
     interviewsReachedTarget: doc.interviewsReachedTarget,
@@ -118,7 +249,11 @@ export function mapWin(doc: Doc<"winLogEntries">): WinLogEntry {
     title: doc.title,
     notes: doc.notes,
     occurredAt: doc.occurredAt,
+    occurredDate: doc.occurredDate,
     source: doc.source,
+    relatedEntityType: doc.relatedEntityType,
+    relatedEntityId: doc.relatedEntityId,
+    dedupeKey: doc.dedupeKey,
     createdAt: doc.createdAt,
   }
 }

@@ -66,9 +66,9 @@ function QualityMeter({ score }: { score: number }) {
 
 function applicationDeadline(application: ApplicationRecord) {
   return (
-    application.takeHomeDeadlineAt ??
-    application.offerResponseDeadlineAt ??
-    application.applicationDeadlineAt
+    application.takeHomeDeadlineDate ??
+    application.offerResponseDeadlineDate ??
+    application.applicationDeadlineDate
   )
 }
 
@@ -102,7 +102,7 @@ export function ApplicationsPage() {
     .filter((application) => !stageFilter || application.stage === stageFilter)
     .filter((application) => !sourceFilter || application.source === sourceFilter)
     .filter((application) => !referralFilter || application.referralStatus === referralFilter)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .sort((a, b) => b.updatedAt - a.updatedAt)
 
   async function updateStage(id: string, stage: ApplicationStage) {
     await moveStage({ id: id as Id<"applications">, stage })
@@ -260,7 +260,7 @@ export function ApplicationsPage() {
                             </h3>
                             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                               <QualityMeter score={score} />
-                              {application.resumeId && (
+                              {application.currentResumeId && (
                                 <span className="inline-flex items-center gap-1 text-xs text-brand">
                                   <FileText className="size-3" />
                                 </span>
@@ -342,7 +342,7 @@ export function ApplicationsPage() {
                       {application.referralStatus ? REFERRAL_LABELS[application.referralStatus] : "—"}
                     </td>
                     <td className="border-b border-line/60 px-4 py-2.5 font-mono text-xs tabular text-ink-300">
-                      {formatShortDate(application.dateApplied)}
+                      {formatShortDate(application.dateAppliedDate)}
                     </td>
                     <td className="border-b border-line/60 px-4 py-2.5 font-mono text-xs tabular text-ink-300">
                       {formatShortDate(applicationDeadline(application))}

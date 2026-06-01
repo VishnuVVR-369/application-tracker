@@ -18,7 +18,7 @@ import { buildAnalyticsModel } from "@/lib/analytics-model"
 import { cn } from "@/lib/utils"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
 import { EmptyState, LoadingPanels, PageHeader, Panel } from "./common"
-import { mapActivity, mapApplication, mapResume } from "./data-mappers"
+import { mapActivity, mapApplication, mapResume, mapStageHistory } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
 const SERIES = [
@@ -79,6 +79,7 @@ export function AnalyticsPage() {
   const analytics = buildAnalyticsModel({
     applications: data.applications.map(mapApplication),
     activityEvents: data.activityEvents.map(mapActivity),
+    stageHistory: data.applicationStageHistory.map(mapStageHistory),
     resumes: data.resumes.map(mapResume),
     filters: { includeArchived, includeClosed },
   })

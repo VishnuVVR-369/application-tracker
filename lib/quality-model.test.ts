@@ -21,7 +21,10 @@ describe("quality-model", () => {
 
   it("keeps disabled or zero-weight edge cases bounded", () => {
     expect(calculateQualityScore([])).toBe(0)
-    expect(calculateQualityScore([{ key: "x", label: "x", checked: true, weight: 0, source: "custom" }])).toBe(0)
+    expect(
+      calculateQualityScore([
+        { key: "x", label: "x", checked: true, weight: 0, source: "custom", sortOrder: 0 },
+      ])
+    ).toBe(0)
   })
 })
-

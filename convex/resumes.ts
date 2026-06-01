@@ -19,6 +19,9 @@ function validateResumeMetadata(args: {
   if (args.sizeBytes > MAX_RESUME_BYTES) {
     throw new Error("Resume upload must be 10 MB or smaller")
   }
+  if (args.sizeBytes < 0) {
+    throw new Error("Resume size must be non-negative")
+  }
 }
 
 export const generateUploadUrl = mutation({
@@ -42,8 +45,8 @@ export const list = query({
       resumes.map(async (resume) => {
         const usage = await ctx.db
           .query("applications")
-          .withIndex("by_userId_and_resumeId", (q) =>
-            q.eq("userId", user._id).eq("resumeId", resume._id)
+          .withIndex("by_userId_and_currentResumeId", (q) =>
+            q.eq("userId", user._id).eq("currentResumeId", resume._id)
           )
           .collect()
         const url = await ctx.storage.getUrl(resume.storageId)
@@ -63,15 +66,16 @@ export const create = mutation({
     label: v.string(),
     fileName: v.string(),
     storageId: v.id("_storage"),
-    mimeType: v.string(),
+    mimeType: v.literal("application/pdf"),
     sizeBytes: v.number(),
+    fileHash: v.optional(v.string()),
     notes: v.optional(v.string()),
     isDefault: v.boolean(),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
     validateResumeMetadata(args)
-    const now = new Date().toISOString()
+    const now = Date.now()
 
     if (args.isDefault) {
       const defaults = await ctx.db
@@ -80,7 +84,11 @@ export const create = mutation({
           q.eq("userId", user._id).eq("isDefault", true)
         )
         .collect()
-      await Promise.all(defaults.map((resume) => ctx.db.patch(resume._id, { isDefault: false })))
+      await Promise.all(
+        defaults.map((resume) =>
+          ctx.db.patch(resume._id, { isDefault: false, updatedAt: now })
+        )
+      )
     }
 
     return await ctx.db.insert("resumes", {
@@ -90,8 +98,10 @@ export const create = mutation({
       storageId: args.storageId,
       mimeType: args.mimeType,
       sizeBytes: args.sizeBytes,
+      fileHash: args.fileHash,
       notes: args.notes,
       isDefault: args.isDefault,
+      defaultedAt: args.isDefault ? now : undefined,
       archived: false,
       createdAt: now,
       updatedAt: now,
@@ -114,6 +124,7 @@ export const update = mutation({
       throw new Error("Resume not found")
     }
 
+    const now = Date.now()
     if (args.isDefault) {
       const defaults = await ctx.db
         .query("resumes")
@@ -124,7 +135,7 @@ export const update = mutation({
       await Promise.all(
         defaults
           .filter((item) => item._id !== args.id)
-          .map((item) => ctx.db.patch(item._id, { isDefault: false }))
+          .map((item) => ctx.db.patch(item._id, { isDefault: false, updatedAt: now }))
       )
     }
 
@@ -135,8 +146,15 @@ export const update = mutation({
           label: args.label,
           notes: args.notes,
           archived: args.archived,
+          archivedAt:
+            args.archived === undefined
+              ? undefined
+              : args.archived
+                ? resume.archivedAt ?? now
+                : undefined,
           isDefault: args.archived ? false : args.isDefault,
-          updatedAt: new Date().toISOString(),
+          defaultedAt: args.isDefault ? now : undefined,
+          updatedAt: now,
         }).filter((entry) => entry[1] !== undefined)
       )
     )
@@ -152,6 +170,7 @@ export const setDefault = mutation({
       throw new Error("Resume not found")
     }
 
+    const now = Date.now()
     const resumes = await ctx.db
       .query("resumes")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
@@ -160,7 +179,8 @@ export const setDefault = mutation({
       resumes.map((item) =>
         ctx.db.patch(item._id, {
           isDefault: item._id === args.id,
-          updatedAt: new Date().toISOString(),
+          defaultedAt: item._id === args.id ? now : item.defaultedAt,
+          updatedAt: now,
         })
       )
     )

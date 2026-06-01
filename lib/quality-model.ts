@@ -33,7 +33,7 @@ export const DEFAULT_QUALITY_ITEMS = [
   },
 ] as const
 
-export function seedQualityChecklist(now = new Date().toISOString()): QualityChecklistItem[] {
+export function seedQualityChecklist(now = Date.now()): QualityChecklistItem[] {
   return DEFAULT_QUALITY_ITEMS.map((item, index) => ({
     id: `quality-${item.key}`,
     key: item.key,
@@ -71,10 +71,13 @@ export function createQualitySnapshot(
 ): QualityCheckSnapshot[] {
   return getEnabledQualityItems(items).map((item) => ({
     key: item.key,
+    itemId: item.id,
     label: item.label,
     checked: checkedKeys.includes(item.key),
     weight: item.weight,
     source: item.source,
+    sortOrder: item.sortOrder,
+    checkedAt: checkedKeys.includes(item.key) ? Date.now() : undefined,
   }))
 }
 
@@ -106,7 +109,7 @@ export function addCustomQualityItem(
   items: QualityChecklistItem[],
   label: string,
   weight: number,
-  now = new Date().toISOString()
+  now = Date.now()
 ) {
   const nextOrder = Math.max(-1, ...items.map((item) => item.sortOrder)) + 1
   const keyBase = label

@@ -13,8 +13,13 @@ export const get = query({
       settings,
       applications,
       resumes,
-      reminders,
+      applicationResumeLinks,
+      tasks,
       activityEvents,
+      applicationStageHistory,
+      applicationContacts,
+      applicationInterviews,
+      applicationOffers,
       weeklyGoals,
       winLogEntries,
       qualityChecklistItems,
@@ -32,11 +37,31 @@ export const get = query({
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .collect(),
       ctx.db
-        .query("reminders")
+        .query("applicationResumeLinks")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("tasks")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .collect(),
       ctx.db
         .query("activityEvents")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("applicationStageHistory")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("applicationContacts")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("applicationInterviews")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("applicationOffers")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .collect(),
       ctx.db
@@ -55,14 +80,18 @@ export const get = query({
 
     const resumeUsageEntries = await Promise.all(
       resumes.map(async (resume) => {
-        const usedIn = await ctx.db
-          .query("applications")
-          .withIndex("by_userId_and_resumeId", (q) =>
-            q.eq("userId", user._id).eq("resumeId", resume._id)
-          )
-          .collect()
+        const usedIn = applications.filter(
+          (application) => application.currentResumeId === resume._id
+        )
         const url = await ctx.storage.getUrl(resume.storageId)
-        return [resume._id, { count: usedIn.length, applicationIds: usedIn.map((app) => app._id), url }] as const
+        return [
+          resume._id,
+          {
+            count: usedIn.length,
+            applicationIds: usedIn.map((application) => application._id),
+            url,
+          },
+        ] as const
       })
     )
 
@@ -72,8 +101,13 @@ export const get = query({
       applications,
       resumes,
       resumeUsage: Object.fromEntries(resumeUsageEntries),
-      reminders,
+      applicationResumeLinks,
+      tasks,
       activityEvents,
+      applicationStageHistory,
+      applicationContacts,
+      applicationInterviews,
+      applicationOffers,
       weeklyGoals,
       winLogEntries,
       qualityChecklistItems,

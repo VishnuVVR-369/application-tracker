@@ -2,6 +2,9 @@ import { v } from "convex/values"
 
 import type { Doc, Id } from "./_generated/dataModel"
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import { normalizeEmail } from "./model"
+
+const DEFAULT_TIMEZONE = "UTC"
 
 const DEFAULT_QUALITY_ITEMS = [
   {
@@ -36,10 +39,19 @@ const DEFAULT_QUALITY_ITEMS = [
   },
 ]
 
-export async function getCurrentUserDoc(ctx: QueryCtx | MutationCtx) {
+async function findUserByIdentity(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
-    throw new Error("Not authenticated")
+    return null
+  }
+
+  const bySubject = await ctx.db
+    .query("users")
+    .withIndex("by_authSubject", (q) => q.eq("authSubject", identity.subject))
+    .unique()
+
+  if (bySubject) {
+    return { identity, user: bySubject }
   }
 
   const byToken = await ctx.db
@@ -49,58 +61,55 @@ export async function getCurrentUserDoc(ctx: QueryCtx | MutationCtx) {
     )
     .unique()
 
-  if (byToken) {
-    return byToken
+  return byToken ? { identity, user: byToken } : { identity, user: null }
+}
+
+export async function getCurrentUserDoc(ctx: QueryCtx | MutationCtx) {
+  const result = await findUserByIdentity(ctx)
+  if (!result?.identity) {
+    throw new Error("Not authenticated")
   }
-
-  const byAuthId = await ctx.db
-    .query("users")
-    .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
-    .unique()
-
-  if (!byAuthId) {
+  if (!result.user) {
     throw new Error("User profile not found")
   }
-
-  return byAuthId
+  return result.user
 }
 
 export async function getCurrentUserDocOrNull(ctx: QueryCtx | MutationCtx) {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) {
-    return null
-  }
-
-  return await ctx.db
-    .query("users")
-    .withIndex("by_tokenIdentifier", (q) =>
-      q.eq("tokenIdentifier", identity.tokenIdentifier)
-    )
-    .unique()
+  const result = await findUserByIdentity(ctx)
+  return result?.user ?? null
 }
 
-async function ensureSettings(ctx: MutationCtx, userId: Id<"users">, displayName?: string) {
+async function ensureSettings(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  displayName?: string,
+  timezone = DEFAULT_TIMEZONE
+) {
   const existing = await ctx.db
     .query("userSettings")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique()
+  const now = Date.now()
 
   if (!existing) {
-    const now = new Date().toISOString()
     await ctx.db.insert("userSettings", {
       userId,
       displayName,
       theme: "dark",
+      timezone,
+      weekStartsOn: "monday",
       createdAt: now,
       updatedAt: now,
     })
     return
   }
 
-  const now = new Date().toISOString()
   await ctx.db.patch(existing._id, {
     displayName: existing.displayName ?? displayName,
     theme: existing.theme ?? "dark",
+    timezone: existing.timezone ?? timezone,
+    weekStartsOn: "monday",
     updatedAt: now,
   })
 }
@@ -115,7 +124,7 @@ async function ensureQualityDefaults(ctx: MutationCtx, userId: Id<"users">) {
     return
   }
 
-  const now = new Date().toISOString()
+  const now = Date.now()
   await Promise.all(
     DEFAULT_QUALITY_ITEMS.map((item, index) =>
       ctx.db.insert("qualityChecklistItems", {
@@ -134,51 +143,50 @@ async function ensureQualityDefaults(ctx: MutationCtx, userId: Id<"users">) {
   )
 }
 
-export async function ensureCurrentUserDoc(ctx: MutationCtx): Promise<Doc<"users">> {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) {
+export async function ensureCurrentUserDoc(
+  ctx: MutationCtx,
+  options?: { timezone?: string }
+): Promise<Doc<"users">> {
+  const result = await findUserByIdentity(ctx)
+  if (!result?.identity) {
     throw new Error("Not authenticated")
   }
 
-  const now = new Date().toISOString()
-  const existing = await ctx.db
-    .query("users")
-    .withIndex("by_tokenIdentifier", (q) =>
-      q.eq("tokenIdentifier", identity.tokenIdentifier)
-    )
-    .unique()
-
-  if (existing) {
-    await ctx.db.patch(existing._id, {
-      authUserId: identity.subject,
-      name: identity.name,
-      email: identity.email,
-      imageUrl: identity.pictureUrl,
-      updatedAt: now,
-    })
-    await ensureSettings(ctx, existing._id, identity.name)
-    await ensureQualityDefaults(ctx, existing._id)
-    return (await ctx.db.get(existing._id)) as Doc<"users">
-  }
-
-  const userId = await ctx.db.insert("users", {
-    authUserId: identity.subject,
+  const { identity } = result
+  const now = Date.now()
+  const patch = {
+    authSubject: identity.subject,
     tokenIdentifier: identity.tokenIdentifier,
     name: identity.name,
     email: identity.email,
+    normalizedEmail: normalizeEmail(identity.email),
     imageUrl: identity.pictureUrl,
-    createdAt: now,
+    lastSeenAt: now,
     updatedAt: now,
+  }
+
+  if (result.user) {
+    await ctx.db.patch(result.user._id, patch)
+    await ensureSettings(ctx, result.user._id, identity.name, options?.timezone)
+    await ensureQualityDefaults(ctx, result.user._id)
+    return (await ctx.db.get(result.user._id)) as Doc<"users">
+  }
+
+  const userId = await ctx.db.insert("users", {
+    ...patch,
+    createdAt: now,
   })
-  await ensureSettings(ctx, userId, identity.name)
+  await ensureSettings(ctx, userId, identity.name, options?.timezone)
   await ensureQualityDefaults(ctx, userId)
   return (await ctx.db.get(userId)) as Doc<"users">
 }
 
 export const ensureCurrent = mutation({
-  args: {},
-  handler: async (ctx) => {
-    return await ensureCurrentUserDoc(ctx)
+  args: {
+    timezone: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await ensureCurrentUserDoc(ctx, { timezone: args.timezone })
   },
 })
 
@@ -202,6 +210,7 @@ export const updateSettings = mutation({
   args: {
     displayName: v.optional(v.string()),
     theme: v.optional(v.union(v.literal("dark"), v.literal("light"), v.literal("system"))),
+    timezone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ensureCurrentUserDoc(ctx)
@@ -209,13 +218,15 @@ export const updateSettings = mutation({
       .query("userSettings")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .unique()
-    const now = new Date().toISOString()
+    const now = Date.now()
 
     if (!settings) {
       await ctx.db.insert("userSettings", {
         userId: user._id,
         displayName: args.displayName ?? user.name,
         theme: args.theme ?? "dark",
+        timezone: args.timezone ?? DEFAULT_TIMEZONE,
+        weekStartsOn: "monday",
         createdAt: now,
         updatedAt: now,
       })

@@ -1,6 +1,6 @@
 import type {
   ApplicationRecord,
-  ReminderRecord,
+  TaskRecord,
   WeeklyGoal,
   WinLogEntry,
   WinType,
@@ -29,26 +29,28 @@ export function getWeekKey(date = new Date()) {
   return toDateKey(getMondayWeekStart(date))
 }
 
-export function getWeekRange(weekStart: string) {
-  const start = new Date(`${weekStart}T00:00:00`)
+export function getWeekRange(weekStartDate: string) {
+  const start = new Date(`${weekStartDate}T00:00:00`)
   const end = addDays(start, 6)
   end.setHours(23, 59, 59, 999)
 
   return {
     start,
     end,
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
+    startDate: toDateKey(start),
+    endDate: toDateKey(end),
   }
 }
 
 export function createDefaultWeeklyGoal(
-  weekStart = getWeekKey(),
-  now = new Date().toISOString()
+  weekStartDate = getWeekKey(),
+  now = Date.now(),
+  timezone = "UTC"
 ): WeeklyGoal {
   return {
-    id: `goal-${weekStart}`,
-    weekStart,
+    id: `goal-${weekStartDate}`,
+    weekStartDate,
+    timezone,
     applicationsSentTarget: 10,
     followUpsSentTarget: 5,
     interviewsReachedTarget: 2,
@@ -62,23 +64,23 @@ export function createDefaultWeeklyGoal(
 export function calculateGoalProgress(args: {
   goal: WeeklyGoal
   applications: ApplicationRecord[]
-  reminders: ReminderRecord[]
+  tasks: TaskRecord[]
   wins: WinLogEntry[]
 }) {
-  const range = getWeekRange(args.goal.weekStart)
+  const range = getWeekRange(args.goal.weekStartDate)
   const applicationsSent = args.applications.filter((application) =>
-    isDateInRange(application.dateApplied, range.startIso, range.endIso)
+    isDateInRange(application.dateAppliedDate, range.startDate, range.endDate)
   ).length
-  const followUpsSent = args.reminders.filter(
-    (reminder) =>
-      reminder.reminderType === "follow_up" &&
-      reminder.completedAt &&
-      isDateInRange(reminder.completedAt, range.startIso, range.endIso)
+  const followUpsSent = args.tasks.filter(
+    (task) =>
+      task.kind === "follow_up" &&
+      task.completedAt &&
+      isDateInRange(task.completedAt, range.start, range.end)
   ).length
   const interviewsReached = args.wins.filter(
     (win) =>
       win.type === "interview_reached" &&
-      isDateInRange(win.occurredAt, range.startIso, range.endIso)
+      isDateInRange(win.occurredDate, range.startDate, range.endDate)
   ).length
   const resumeImprovements =
     args.goal.manualResumeImprovements +
@@ -86,7 +88,7 @@ export function calculateGoalProgress(args: {
       (win) =>
         win.type === "resume_improved" &&
         win.source === "auto" &&
-        isDateInRange(win.occurredAt, range.startIso, range.endIso)
+        isDateInRange(win.occurredDate, range.startDate, range.endDate)
     ).length
 
   return [

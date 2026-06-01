@@ -147,7 +147,7 @@ export function SettingsPage() {
         <Panel title="Export my data" icon={Database} className="xl:col-span-2">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-xl text-sm text-ink-300">
-              Export applications, resume metadata, reminders, activity, goals, wins, settings, and quality
+              Export applications, resume metadata, tasks, activity, goals, wins, settings, and quality
               defaults as a single JSON file.
             </p>
             <Button onClick={downloadExport} className="w-fit shrink-0">

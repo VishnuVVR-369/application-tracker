@@ -3,9 +3,10 @@ import {
   type ActivityEvent,
   type ApplicationRecord,
   type ApplicationStage,
+  type ApplicationStageHistory,
   type ResumeRecord,
 } from "@/lib/application-model"
-import { daysBetween, toDateKey } from "@/lib/date-model"
+import { daysBetween } from "@/lib/date-model"
 import { calculateQualityScore } from "@/lib/quality-model"
 
 const RESPONSE_STAGES: ApplicationStage[] = ["phone_screen", "interview", "offer", "closed"]
@@ -55,6 +56,7 @@ function countBy<T extends string>(values: T[]) {
 export function buildAnalyticsModel(args: {
   applications: ApplicationRecord[]
   activityEvents: ActivityEvent[]
+  stageHistory?: ApplicationStageHistory[]
   resumes: ResumeRecord[]
   filters: AnalyticsFilters
 }) {
@@ -65,35 +67,33 @@ export function buildAnalyticsModel(args: {
   const offer = applied.filter((application) => OFFER_STAGES.includes(application.stage))
 
   const firstResponseDays = applied.flatMap((application) => {
-    const responseEvent = args.activityEvents
+    const responseStage = (args.stageHistory ?? [])
       .filter(
         (event) =>
-          event.applicationId === application.id &&
-          event.toStage &&
-          RESPONSE_STAGES.includes(event.toStage)
+          event.applicationId === application.id && RESPONSE_STAGES.includes(event.stage)
       )
-      .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())[0]
+      .sort((a, b) => a.enteredAt - b.enteredAt)[0]
 
-    const days = daysBetween(application.dateApplied, responseEvent?.eventDate)
+    const days = daysBetween(application.dateAppliedDate, responseStage?.enteredAt)
     return days === undefined ? [] : [days]
   })
 
   const interviewToDecisionDays = applied.flatMap((application) => {
-    const interviewEvent = args.activityEvents.find(
-      (event) => event.applicationId === application.id && event.toStage === "interview"
+    const interviewEvent = args.stageHistory?.find(
+      (event) => event.applicationId === application.id && event.stage === "interview"
     )
-    const decisionEvent = args.activityEvents.find(
+    const decisionEvent = args.stageHistory?.find(
       (event) =>
         event.applicationId === application.id &&
-        (event.toStage === "offer" || event.toStage === "closed")
+        (event.stage === "offer" || event.stage === "closed")
     )
-    const days = daysBetween(interviewEvent?.eventDate, decisionEvent?.eventDate)
+    const days = daysBetween(interviewEvent?.enteredAt, decisionEvent?.enteredAt)
     return days === undefined ? [] : [days]
   })
 
-  const stageDurations = args.activityEvents
-    .filter((event) => event.type === "stage_changed")
-    .map((event) => daysBetween(event.createdAt, event.eventDate) ?? 0)
+  const stageDurations = (args.stageHistory ?? [])
+    .filter((event) => event.exitedAt !== undefined)
+    .map((event) => daysBetween(event.enteredAt, event.exitedAt) ?? 0)
 
   const segment = (label: string, getKey: (application: ApplicationRecord) => string) => {
     const groups = new Map<string, ApplicationRecord[]>()
@@ -130,8 +130,8 @@ export function buildAnalyticsModel(args: {
 
   const weeklyCounts = countBy(
     applied
-      .filter((application) => application.dateApplied)
-      .map((application) => toDateKey(new Date(application.dateApplied as string)))
+      .filter((application) => application.dateAppliedDate)
+      .map((application) => application.dateAppliedDate as string)
   )
 
   return {
@@ -158,7 +158,9 @@ export function buildAnalyticsModel(args: {
         return "0-49"
       }),
       resume: segment("Resume", (application) =>
-        application.resumeId ? resumeById.get(application.resumeId) ?? "Unknown resume" : "No resume"
+        application.currentResumeId
+          ? resumeById.get(application.currentResumeId) ?? "Unknown resume"
+          : "No resume"
       ),
     },
     rejection: {

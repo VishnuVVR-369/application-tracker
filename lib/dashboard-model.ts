@@ -4,14 +4,15 @@ import {
   isActiveApplication,
   type ActivityEvent,
   type ApplicationRecord,
-  type ReminderRecord,
+  TASK_KIND_LABELS,
+  type TaskRecord,
 } from "@/lib/application-model"
 import { sortActivityNewestFirst } from "@/lib/activity-model"
-import { buildApplicationDeadlineItems, isWithinDays } from "@/lib/reminder-model"
+import { buildApplicationDeadlineItems, getTaskDueValue, isWithinDays } from "@/lib/task-model"
 
 export function buildDashboardModel(args: {
   applications: ApplicationRecord[]
-  reminders: ReminderRecord[]
+  tasks: TaskRecord[]
   activityEvents: ActivityEvent[]
   now?: Date
 }) {
@@ -22,32 +23,32 @@ export function buildDashboardModel(args: {
 
   const staleActive = activeApplications.filter((application) => {
     const last = application.lastActivityAt ?? application.updatedAt
-    return new Date(last).getTime() <= staleCutoff
+    return last <= staleCutoff
   })
-  const activeWithoutResume = activeApplications.filter((application) => !application.resumeId)
+  const activeWithoutResume = activeApplications.filter((application) => !application.currentResumeId)
   const referralNotChecked = activeApplications.filter(
     (application) => application.referralStatus === "not_checked"
   )
   const savedNotApplied = visibleApplications.filter((application) => application.stage === "saved")
 
   const deadlineItems = buildApplicationDeadlineItems(visibleApplications)
-    .filter((item) => isWithinDays(item.dueAt, 7, now))
+    .filter((item) => isWithinDays(item.dueDate, 7, now))
     .map((item) => ({
       id: item.id,
       title: item.title,
-      dueAt: item.dueAt,
+      dueAt: item.dueDate,
       applicationId: item.applicationId,
       kind: item.type,
     }))
 
-  const reminderItems = args.reminders
-    .filter((reminder) => reminder.status === "pending" && isWithinDays(reminder.dueAt, 7, now))
-    .map((reminder) => ({
-      id: reminder.id,
-      title: reminder.title,
-      dueAt: reminder.dueAt,
-      applicationId: reminder.applicationId,
-      kind: `${reminder.reminderType.replace("_", " ")} reminder`,
+  const taskItems = args.tasks
+    .filter((task) => task.status === "pending" && isWithinDays(getTaskDueValue(task), 7, now))
+    .map((task) => ({
+      id: task.id,
+      title: task.title,
+      dueAt: getTaskDueValue(task) ?? "",
+      applicationId: task.applicationId,
+      kind: TASK_KIND_LABELS[task.kind],
     }))
 
   return {
@@ -79,10 +80,9 @@ export function buildDashboardModel(args: {
         detail: "Ready for a send or an archive decision",
       },
     ],
-    dueThisWeek: [...deadlineItems, ...reminderItems].sort(
+    dueThisWeek: [...deadlineItems, ...taskItems].sort(
       (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
     ),
     recentActivity: sortActivityNewestFirst(args.activityEvents).slice(0, 8),
   }
 }
-

@@ -13,6 +13,7 @@ export const REJECTION_STAGE_LABELS: Record<RejectionStage, string> = {
   technical_screen: "Technical screen",
   onsite: "Onsite",
   offer: "Offer",
+  other: "Other",
 }
 
 export const REJECTION_REASON_LABELS: Record<RejectionReason, string> = {
@@ -23,9 +24,9 @@ export const REJECTION_REASON_LABELS: Record<RejectionReason, string> = {
   timing: "Timing",
   competition: "Competition",
   unknown: "Unknown",
+  other: "Other",
 }
 
 export function isRejectedOutcome(outcome: ClosedOutcome | undefined) {
   return outcome === "rejected"
 }
-

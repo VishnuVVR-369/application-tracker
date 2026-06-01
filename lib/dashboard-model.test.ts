@@ -1,33 +1,38 @@
 import { describe, expect, it } from "vitest"
 
-import type { ApplicationRecord, ReminderRecord } from "@/lib/application-model"
+import type { ApplicationRecord, TaskRecord } from "@/lib/application-model"
 import { buildDashboardModel } from "@/lib/dashboard-model"
 
 describe("dashboard-model", () => {
-  it("detects attention items and due reminders", () => {
+  it("detects attention items and due tasks", () => {
     const app: ApplicationRecord = {
       id: "app-1",
       companyName: "Acme",
+      companyKey: "acme",
       roleTitle: "Engineer",
+      roleKey: "engineer",
       stage: "applied",
+      currentStageEnteredAt: Date.parse("2026-05-01T00:00:00.000Z"),
       referralStatus: "not_checked",
       qualityChecks: [],
       archived: false,
-      createdAt: "2026-05-01T00:00:00.000Z",
-      updatedAt: "2026-05-01T00:00:00.000Z",
-      lastActivityAt: "2026-05-01T00:00:00.000Z",
+      createdAt: Date.parse("2026-05-01T00:00:00.000Z"),
+      updatedAt: Date.parse("2026-05-01T00:00:00.000Z"),
+      lastActivityAt: Date.parse("2026-05-01T00:00:00.000Z"),
     }
-    const reminder: ReminderRecord = {
-      id: "rem-1",
+    const task: TaskRecord = {
+      id: "task-1",
       title: "Follow up",
-      dueAt: "2026-06-03T00:00:00.000Z",
+      dueAt: Date.parse("2026-06-03T00:00:00.000Z"),
       status: "pending",
-      reminderType: "follow_up",
-      createdAt: "2026-06-01T00:00:00.000Z",
+      kind: "follow_up",
+      source: "manual",
+      createdAt: Date.parse("2026-06-01T00:00:00.000Z"),
+      updatedAt: Date.parse("2026-06-01T00:00:00.000Z"),
     }
     const model = buildDashboardModel({
       applications: [app],
-      reminders: [reminder],
+      tasks: [task],
       activityEvents: [],
       now: new Date("2026-06-01T12:00:00.000Z"),
     })
@@ -35,4 +40,3 @@ describe("dashboard-model", () => {
     expect(model.dueThisWeek).toHaveLength(1)
   })
 })
-
