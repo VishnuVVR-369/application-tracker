@@ -1,0 +1,168 @@
+import { v } from "convex/values"
+
+import { mutation, query } from "./_generated/server"
+import { getCurrentUserDoc } from "./users"
+
+const MAX_RESUME_BYTES = 10 * 1024 * 1024
+
+function validateResumeMetadata(args: {
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+}) {
+  if (!args.fileName.toLowerCase().endsWith(".pdf")) {
+    throw new Error("Resume upload must use a .pdf extension")
+  }
+  if (args.mimeType !== "application/pdf") {
+    throw new Error("Resume upload must be application/pdf")
+  }
+  if (args.sizeBytes > MAX_RESUME_BYTES) {
+    throw new Error("Resume upload must be 10 MB or smaller")
+  }
+}
+
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await getCurrentUserDoc(ctx)
+    return await ctx.storage.generateUploadUrl()
+  },
+})
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserDoc(ctx)
+    const resumes = await ctx.db
+      .query("resumes")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+
+    return await Promise.all(
+      resumes.map(async (resume) => {
+        const usage = await ctx.db
+          .query("applications")
+          .withIndex("by_userId_and_resumeId", (q) =>
+            q.eq("userId", user._id).eq("resumeId", resume._id)
+          )
+          .collect()
+        const url = await ctx.storage.getUrl(resume.storageId)
+        return {
+          ...resume,
+          url,
+          usageCount: usage.length,
+          usageApplicationIds: usage.map((application) => application._id),
+        }
+      })
+    )
+  },
+})
+
+export const create = mutation({
+  args: {
+    label: v.string(),
+    fileName: v.string(),
+    storageId: v.id("_storage"),
+    mimeType: v.string(),
+    sizeBytes: v.number(),
+    notes: v.optional(v.string()),
+    isDefault: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserDoc(ctx)
+    validateResumeMetadata(args)
+    const now = new Date().toISOString()
+
+    if (args.isDefault) {
+      const defaults = await ctx.db
+        .query("resumes")
+        .withIndex("by_userId_and_isDefault", (q) =>
+          q.eq("userId", user._id).eq("isDefault", true)
+        )
+        .collect()
+      await Promise.all(defaults.map((resume) => ctx.db.patch(resume._id, { isDefault: false })))
+    }
+
+    return await ctx.db.insert("resumes", {
+      userId: user._id,
+      label: args.label,
+      fileName: args.fileName,
+      storageId: args.storageId,
+      mimeType: args.mimeType,
+      sizeBytes: args.sizeBytes,
+      notes: args.notes,
+      isDefault: args.isDefault,
+      archived: false,
+      createdAt: now,
+      updatedAt: now,
+    })
+  },
+})
+
+export const update = mutation({
+  args: {
+    id: v.id("resumes"),
+    label: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    archived: v.optional(v.boolean()),
+    isDefault: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserDoc(ctx)
+    const resume = await ctx.db.get(args.id)
+    if (!resume || resume.userId !== user._id) {
+      throw new Error("Resume not found")
+    }
+
+    if (args.isDefault) {
+      const defaults = await ctx.db
+        .query("resumes")
+        .withIndex("by_userId_and_isDefault", (q) =>
+          q.eq("userId", user._id).eq("isDefault", true)
+        )
+        .collect()
+      await Promise.all(
+        defaults
+          .filter((item) => item._id !== args.id)
+          .map((item) => ctx.db.patch(item._id, { isDefault: false }))
+      )
+    }
+
+    await ctx.db.patch(
+      args.id,
+      Object.fromEntries(
+        Object.entries({
+          label: args.label,
+          notes: args.notes,
+          archived: args.archived,
+          isDefault: args.archived ? false : args.isDefault,
+          updatedAt: new Date().toISOString(),
+        }).filter((entry) => entry[1] !== undefined)
+      )
+    )
+  },
+})
+
+export const setDefault = mutation({
+  args: { id: v.id("resumes") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserDoc(ctx)
+    const resume = await ctx.db.get(args.id)
+    if (!resume || resume.userId !== user._id || resume.archived) {
+      throw new Error("Resume not found")
+    }
+
+    const resumes = await ctx.db
+      .query("resumes")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect()
+    await Promise.all(
+      resumes.map((item) =>
+        ctx.db.patch(item._id, {
+          isDefault: item._id === args.id,
+          updatedAt: new Date().toISOString(),
+        })
+      )
+    )
+  },
+})

@@ -1,65 +1,137 @@
-import Image from "next/image";
+import Link from "next/link"
+import { redirect } from "next/navigation"
+import { ArrowRight, BarChart3, CheckCircle2, FileText, Target } from "lucide-react"
 
-export default function Home() {
+import { Button } from "@/components/ui/button"
+import { hasConvexAuthEnv, isAuthenticated } from "@/lib/auth-server"
+
+export default async function Home() {
+  if (hasConvexAuthEnv() && (await isAuthenticated())) {
+    redirect("/app")
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-surface-0 text-ink-100">
+      <section className="border-b border-line px-4 py-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <Link href="/" className="font-semibold">
+            Application Tracker
+          </Link>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost">
+              <Link href="/signin">Sign in</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/signin">
+                Start tracking
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      <section className="px-4 py-16 sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
+            <p className="micro-label mb-4">personal job search operations</p>
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-6xl">
+              Application Tracker
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-ink-300">
+              Track every application from saved to closed, keep resumes and deadlines attached,
+              understand what is working, and hold a steady weekly cadence.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/signin">
+                  Start with OAuth
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" size="lg">
+                <Link href="/signin">View sign in</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-lg border border-line bg-surface-2 p-4 shadow-overlay">
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between rounded-md border border-line bg-surface-1 p-3">
+                <span className="micro-label">Dashboard</span>
+                <span className="rounded-md bg-brand-weak px-2 py-1 text-xs text-brand">live</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {["Applied 12", "Interview 4", "Offer 1"].map((item) => (
+                  <div key={item} className="rounded-md border border-line bg-surface-1 p-4">
+                    <p className="font-mono text-2xl tabular">{item.split(" ")[1]}</p>
+                    <p className="text-xs text-ink-500">{item.split(" ")[0]}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                {["saved", "applied", "interview"].map((stage) => (
+                  <div key={stage} className="min-h-40 rounded-md border border-line bg-surface-1 p-3">
+                    <p className="micro-label">{stage}</p>
+                    <div className="mt-4 grid gap-2">
+                      <div className="rounded-md bg-surface-3 p-3">
+                        <p className="text-xs text-ink-500">ACME</p>
+                        <p className="text-sm font-medium">Frontend Engineer</p>
+                      </div>
+                      <div className="rounded-md bg-surface-3 p-3">
+                        <p className="text-xs text-ink-500">Globex</p>
+                        <p className="text-sm font-medium">Product Engineer</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
-    </div>
-  );
+      </section>
+
+      <section className="border-y border-line bg-surface-1 px-4 py-14">
+        <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-4">
+          {[
+            ["Track every stage", CheckCircle2],
+            ["Attach resumes and deadlines", FileText],
+            ["Analyze funnel patterns", BarChart3],
+            ["Keep weekly goals", Target],
+          ].map(([label, Icon]) => (
+            <div key={String(label)} className="rounded-lg border border-line bg-surface-2 p-5">
+              <Icon className="size-5 text-brand" />
+              <h2 className="mt-4 text-sm font-semibold">{String(label)}</h2>
+              <p className="mt-2 text-sm text-ink-300">
+                Built around the application record so supporting data stays attributable.
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="px-4 py-16">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-3">
+          {[
+            "Keep every application, timeline event, reminder, offer, and outcome in one place.",
+            "Measure conversion by source, referral status, work arrangement, quality, and resume version.",
+            "Review wins, lessons, and next-week focus without turning the search into a noisy CRM.",
+          ].map((copy, index) => (
+            <div key={copy}>
+              <p className="micro-label mb-3">0{index + 1}</p>
+              <p className="text-lg leading-8 text-ink-300">{copy}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <footer className="border-t border-line px-4 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>Application Tracker</p>
+          <Link href="/signin" className="text-brand">
+            Sign in with GitHub or Google
+          </Link>
+        </div>
+      </footer>
+    </main>
+  )
 }

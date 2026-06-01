@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+import { ConvexClientProvider } from "@/components/convex-client-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { getToken, hasConvexAuthEnv } from "@/lib/auth-server";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -22,11 +24,13 @@ export const metadata: Metadata = {
     "Track every job application from saved to closed — resumes, deadlines, analytics, and goals in one calm, dark-first dashboard.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const token = hasConvexAuthEnv() ? await getToken() : null;
+
   return (
     <html
       lang="en"
@@ -34,10 +38,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-          <Toaster />
-        </ThemeProvider>
+        <ConvexClientProvider initialToken={token}>
+          <ThemeProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Toaster />
+          </ThemeProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );
