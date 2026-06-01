@@ -1,26 +1,250 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  Dark-first per docs/design.md §3. Dark is the default (`:root`); light is a
+  faithful inversion applied via `:root[data-theme="light"]`. The Tailwind
+  `dark:` variant therefore means "anything that is not explicitly light", so
+  Nova's dark-tuned component styles apply by default (and during SSR before
+  next-themes sets the attribute — preventing a flash).
+*/
+@custom-variant dark (&:is(:root:not([data-theme="light"]) *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* design.md raw tokens, exposed as Tailwind color utilities */
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink-100: var(--ink-100);
+  --color-ink-300: var(--ink-300);
+  --color-ink-500: var(--ink-500);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-weak: var(--brand-weak);
+  --color-status-up: var(--status-up);
+  --color-status-warn: var(--status-warn);
+  --color-status-down: var(--status-down);
+  --color-status-info: var(--status-info);
+  --color-stage-saved: var(--stage-saved);
+  --color-stage-applied: var(--stage-applied);
+  --color-stage-phone: var(--stage-phone);
+  --color-stage-interview: var(--stage-interview);
+  --color-stage-offer: var(--stage-offer);
+  --color-stage-closed: var(--stage-closed);
+
+  /* §5 elevation: one soft shadow for overlays/popovers only */
+  --shadow-overlay: 0 8px 32px rgb(0 0 0 / 0.45);
+  /* §5 accent glow, used sparingly on primary action / active nav */
+  --shadow-glow: 0 0 12px rgb(16 185 129 / 0.35);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── Dark (default) ──────────────────────────────────────────────────────── */
+:root {
+  /* raw design tokens */
+  --surface-0: #0b0e11;
+  --surface-1: #111519;
+  --surface-2: #171c21;
+  --surface-3: #1f252b;
+  --line: #252c33;
+  --line-strong: #323a42;
+  --ink-100: #e8edf1;
+  --ink-300: #9aa6b2;
+  --ink-500: #5c6873;
+  --brand: #10b981;
+  --brand-hover: #34d399;
+  --brand-press: #059669;
+  --brand-weak: rgb(16 185 129 / 0.1);
+  --status-up: #10b981;
+  --status-warn: #f59e0b;
+  --status-down: #ef4444;
+  --status-info: #38bdf8;
+  --stage-saved: #5c6873;
+  --stage-applied: #3b82f6;
+  --stage-phone: #06b6d4;
+  --stage-interview: #8b5cf6;
+  --stage-offer: #10b981;
+  --stage-closed: #6b7280;
+
+  /* shadcn semantic tokens mapped onto the design system */
+  --background: var(--surface-0);
+  --foreground: var(--ink-100);
+  --card: var(--surface-2);
+  --card-foreground: var(--ink-100);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--ink-100);
+  --primary: var(--brand);
+  --primary-foreground: #022c22;
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink-100);
+  --muted: var(--surface-1);
+  --muted-foreground: var(--ink-300);
+  --accent: var(--surface-3);
+  --accent-foreground: var(--ink-100);
+  --destructive: var(--status-down);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--brand);
+  --chart-1: var(--brand);
+  --chart-2: var(--status-info);
+  --chart-3: var(--stage-interview);
+  --chart-4: var(--status-warn);
+  --chart-5: var(--status-down);
+  --radius: 0.625rem;
+  --sidebar: var(--surface-1);
+  --sidebar-foreground: var(--ink-300);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: #022c22;
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--ink-100);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--brand);
+}
+
+/* ── Light (faithful inversion) ──────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --surface-0: #f7f8fa;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #f1f4f7;
+  --line: #e5e9ed;
+  --line-strong: #d2d8de;
+  --ink-100: #0f172a;
+  --ink-300: #475569;
+  --ink-500: #7c8794;
+  --brand: #059669;
+  --brand-hover: #10b981;
+  --brand-press: #047857;
+  --brand-weak: rgb(5 150 105 / 0.1);
+  --status-up: #059669;
+  --status-warn: #d97706;
+  --status-down: #dc2626;
+  --status-info: #0284c7;
+  --stage-saved: #7c8794;
+  --stage-applied: #2563eb;
+  --stage-phone: #0891b2;
+  --stage-interview: #7c3aed;
+  --stage-offer: #059669;
+  --stage-closed: #6b7280;
+
+  --background: var(--surface-0);
+  --foreground: var(--ink-100);
+  --card: var(--surface-2);
+  --card-foreground: var(--ink-100);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink-100);
+  --primary: var(--brand);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-3);
+  --secondary-foreground: var(--ink-100);
+  --muted: var(--surface-3);
+  --muted-foreground: var(--ink-300);
+  --accent: var(--surface-3);
+  --accent-foreground: var(--ink-100);
+  --destructive: var(--status-down);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--brand);
+  --chart-1: var(--brand);
+  --chart-2: var(--status-info);
+  --chart-3: var(--stage-interview);
+  --chart-4: var(--status-warn);
+  --chart-5: var(--status-down);
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--ink-300);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--ink-100);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--brand);
+  /* §5 overlay shadow is softer over a light canvas */
+  --shadow-overlay: 0 8px 32px rgb(15 23 42 / 0.16);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* §4 headings: tight tracking, semibold */
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold tracking-tight;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* §4 micro-label: 10–11px uppercase, wide tracking, muted */
+  .micro-label {
+    @apply font-mono text-[11px] font-medium tracking-[0.16em] text-ink-500 uppercase;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* §10 reduced motion: drop glow pulse and large transitions when requested */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
