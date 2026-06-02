@@ -7,18 +7,17 @@ import { Save } from "lucide-react"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import {
   APPLICATION_STAGES,
@@ -178,13 +177,13 @@ export function ApplicationFormSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      {trigger && <SheetTrigger asChild>{trigger}</SheetTrigger>}
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle>{application ? "Edit application" : "New application"}</SheetTitle>
-        </SheetHeader>
-        <form onSubmit={onSubmit} className="grid gap-4 px-4 pb-4 pt-2">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b border-line/70 px-4 py-3 pr-12">
+          <DialogTitle>{application ? "Edit application" : "New application"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-4 pt-3">
           <SectionLabel>Basics</SectionLabel>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Company">
@@ -380,20 +379,20 @@ export function ApplicationFormSheet({
             </p>
           )}
 
-          <SheetFooter className="-mx-4 -mb-4 mt-2 flex-row justify-end gap-2 border-t border-line/70 bg-surface-1/40 px-4">
-            <SheetClose asChild>
+          <DialogFooter className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex-row justify-end gap-2 border-t border-line/70 bg-surface-1/95 px-4 supports-backdrop-filter:backdrop-blur-sm">
+            <DialogClose asChild>
               <Button type="button" variant="ghost">
                 Cancel
               </Button>
-            </SheetClose>
+            </DialogClose>
             <Button type="submit" disabled={pending}>
               <Save className="size-4" />
               {pending ? "Saving…" : "Save application"}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
 
