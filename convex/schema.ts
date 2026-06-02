@@ -221,7 +221,6 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_authSubject", ["authSubject"])
-    .index("by_tokenIdentifier", ["tokenIdentifier"])
     .index("by_normalizedEmail", ["normalizedEmail"]),
 
   userSettings: defineTable({

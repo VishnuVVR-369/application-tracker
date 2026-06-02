@@ -5,6 +5,7 @@ import { useMutation } from "convex/react"
 import {
   Activity,
   AlarmClock,
+  ArrowUpRight,
   Bookmark,
   CalendarClock,
   Check,
@@ -12,9 +13,13 @@ import {
   Plus,
   UserPlus,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { APPLICATION_STAGES, STAGE_LABELS, type ApplicationStage } from "@/lib/application-model"
 import { buildDashboardModel } from "@/lib/dashboard-model"
 import { formatShortDate } from "@/lib/date-model"
@@ -36,12 +41,26 @@ const stageAccent: Record<ApplicationStage, string> = {
 
 const attentionMeta: Record<
   string,
-  { icon: React.ComponentType<{ className?: string }>; tone: string }
+  { icon: React.ComponentType<{ className?: string }>; tone: string; href?: string }
 > = {
-  "stale-active": { icon: AlarmClock, tone: "text-status-warn bg-status-warn/12 border-status-warn/25" },
-  "missing-resume": { icon: FileWarning, tone: "text-status-info bg-status-info/12 border-status-info/25" },
-  referral: { icon: UserPlus, tone: "text-stage-interview bg-stage-interview/12 border-stage-interview/25" },
-  saved: { icon: Bookmark, tone: "text-stage-saved bg-stage-saved/12 border-stage-saved/25" },
+  "stale-active": {
+    icon: AlarmClock,
+    tone: "text-status-warn bg-status-warn/12 border-status-warn/25",
+  },
+  "missing-resume": {
+    icon: FileWarning,
+    tone: "text-status-info bg-status-info/12 border-status-info/25",
+  },
+  referral: {
+    icon: UserPlus,
+    tone: "text-stage-interview bg-stage-interview/12 border-stage-interview/25",
+    href: "/app/applications?referral=not_checked",
+  },
+  saved: {
+    icon: Bookmark,
+    tone: "text-stage-saved bg-stage-saved/12 border-stage-saved/25",
+    href: "/app/applications?stage=saved",
+  },
 }
 
 export function DashboardPage() {
@@ -68,6 +87,11 @@ export function DashboardPage() {
   const activityEvents = data.activityEvents.map(mapActivity)
   const dashboard = buildDashboardModel({ applications, tasks, activityEvents })
   const totalApplications = applications.length
+
+  async function handleComplete(id: Id<"tasks">, title: string) {
+    await completeTask({ id })
+    toast.success("Task completed", { description: title })
+  }
 
   return (
     <>
@@ -97,30 +121,46 @@ export function DashboardPage() {
                 <h2 className="text-sm font-semibold tracking-tight">Pipeline</h2>
                 <span className="micro-label">{totalApplications} total</span>
               </div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand-weak px-3 py-1 text-xs font-medium text-brand">
+              <Badge variant="accent" className="h-6 gap-1.5 px-3">
                 <CountUp value={dashboard.activeCount} className="font-mono font-semibold" />
                 active
-              </span>
+              </Badge>
             </div>
             <div className="grid grid-cols-2 divide-x divide-y divide-line/60 sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
-              {APPLICATION_STAGES.map((stage) => (
-                <Link
-                  key={stage}
-                  href={`/app/applications?stage=${stage}`}
-                  className={cn(
-                    "group relative p-4 transition-colors before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:opacity-0 before:transition-opacity hover:bg-surface-3/50 hover:before:opacity-100",
-                    stageAccent[stage]
-                  )}
-                >
-                  <span className="micro-label flex items-center gap-1.5 text-current">
-                    <span className="size-1.5 rounded-full bg-current" />
-                    {STAGE_LABELS[stage]}
-                  </span>
-                  <p className="mt-3 font-mono text-3xl font-semibold tabular text-ink-100">
-                    <CountUp value={dashboard.stageCounts[stage]} />
-                  </p>
-                </Link>
-              ))}
+              {APPLICATION_STAGES.map((stage) => {
+                const count = dashboard.stageCounts[stage]
+                const share = totalApplications ? Math.round((count / totalApplications) * 100) : 0
+                return (
+                  <Tooltip key={stage}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={`/app/applications?stage=${stage}`}
+                        className={cn(
+                          "group relative overflow-hidden p-4 transition-colors before:absolute before:top-0 before:left-0 before:h-full before:w-0.5 before:opacity-0 before:transition-opacity hover:bg-surface-3/50 hover:before:opacity-100",
+                          stageAccent[stage]
+                        )}
+                      >
+                        <span className="micro-label flex items-center gap-1.5 text-current">
+                          <span className="size-1.5 rounded-full bg-current" />
+                          {STAGE_LABELS[stage]}
+                        </span>
+                        <p className="mt-3 font-mono text-3xl font-semibold tabular text-ink-100">
+                          <CountUp value={count} />
+                        </p>
+                        <span className="mt-3 block h-0.5 w-full overflow-hidden rounded-full bg-current/15">
+                          <span
+                            className="block h-full rounded-full bg-current transition-[width] duration-700 ease-out"
+                            style={{ width: `${share}%` }}
+                          />
+                        </span>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {count} of {totalApplications} · {share}% of pipeline
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
             </div>
           </section>
         </StaggerItem>
@@ -129,7 +169,7 @@ export function DashboardPage() {
           {/* ── Needs attention ────────────────────────────────────────── */}
           <StaggerItem>
             <Panel title="Needs attention" icon={AlarmClock} className="h-full">
-              {dashboard.attentionItems.length ? (
+              {dashboard.attentionItems.some((item) => item.count > 0) ? (
                 <div className="grid gap-2.5">
                   {dashboard.attentionItems.map((item) => {
                     const meta = attentionMeta[item.key] ?? {
@@ -137,11 +177,9 @@ export function DashboardPage() {
                       tone: "text-ink-300 bg-surface-3 border-line",
                     }
                     const Icon = meta.icon
-                    return (
-                      <div
-                        key={item.key}
-                        className="flex items-center gap-3 rounded-lg border border-line bg-surface-1/60 p-3 transition-colors hover:border-line-strong"
-                      >
+                    const dim = item.count === 0
+                    const inner = (
+                      <>
                         <span
                           className={cn(
                             "flex size-9 shrink-0 items-center justify-center rounded-lg border",
@@ -154,7 +192,25 @@ export function DashboardPage() {
                           <p className="text-sm font-medium">{item.label}</p>
                           <p className="truncate text-xs text-ink-500">{item.detail}</p>
                         </div>
+                        {meta.href && !dim && (
+                          <ArrowUpRight className="size-4 shrink-0 text-ink-500 opacity-0 transition-opacity group-hover:opacity-100" />
+                        )}
                         <span className="font-mono text-xl tabular text-ink-100">{item.count}</span>
+                      </>
+                    )
+                    const base =
+                      "group flex items-center gap-3 rounded-lg border border-line bg-surface-1/60 p-3 transition-colors"
+                    return meta.href && !dim ? (
+                      <Link
+                        key={item.key}
+                        href={meta.href}
+                        className={cn(base, "hover:border-line-strong hover:bg-surface-3/50")}
+                      >
+                        {inner}
+                      </Link>
+                    ) : (
+                      <div key={item.key} className={cn(base, dim && "opacity-55")}>
+                        {inner}
                       </div>
                     )
                   })}
@@ -184,9 +240,9 @@ export function DashboardPage() {
                         <p className="truncate text-sm font-medium">{item.title}</p>
                         <p className="text-xs capitalize text-ink-500">{item.kind}</p>
                       </div>
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-status-warn/25 bg-status-warn/10 px-2 py-1 font-mono text-xs tabular text-status-warn">
+                      <Badge variant="warn" className="h-6 shrink-0 font-mono tabular">
                         {formatShortDate(item.dueAt)}
-                      </span>
+                      </Badge>
                     </Link>
                   ))}
                 </div>
@@ -205,14 +261,14 @@ export function DashboardPage() {
         <StaggerItem>
           <Panel title="Recent activity" icon={Activity}>
             {dashboard.recentActivity.length ? (
-              <div className="relative grid gap-0 before:absolute before:bottom-3 before:left-[7px] before:top-3 before:w-px before:bg-line">
+              <div className="relative grid gap-0 before:absolute before:top-3 before:bottom-3 before:left-[7px] before:w-px before:bg-line">
                 {dashboard.recentActivity.map((event) => (
                   <Link
                     href={`/app/applications/${event.applicationId}`}
                     key={event.id}
-                    className="group relative flex items-center justify-between gap-3 rounded-lg py-2.5 pl-7 pr-3 transition-colors hover:bg-surface-3/50"
+                    className="group relative flex items-center justify-between gap-3 rounded-lg py-2.5 pr-3 pl-7 transition-colors hover:bg-surface-3/50"
                   >
-                    <span className="absolute left-0 top-1/2 size-3.5 -translate-y-1/2 rounded-full border-2 border-surface-2 bg-brand shadow-glow" />
+                    <span className="absolute top-1/2 left-0 size-3.5 -translate-y-1/2 rounded-full border-2 border-surface-2 bg-brand shadow-glow transition-transform group-hover:scale-125" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{event.title}</p>
                       {event.description && (
@@ -246,7 +302,7 @@ export function DashboardPage() {
                   .map((task) => (
                     <div
                       key={task._id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-1/60 p-3"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-1/60 p-3 transition-colors hover:border-line-strong"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{task.title}</p>
@@ -257,7 +313,7 @@ export function DashboardPage() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => void completeTask({ id: task._id })}
+                        onClick={() => void handleComplete(task._id, task.title)}
                       >
                         <Check className="size-3.5" />
                         Complete

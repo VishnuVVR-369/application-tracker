@@ -36,7 +36,7 @@ const THEMES = [
 
 export function SettingsPage() {
   const { data, isLoading } = useAppData()
-  const exportPayload = useQuery(api.exportData.all)
+  const exportPayload = useQuery(api.exportData.all, data ? {} : "skip")
   const updateSettings = useMutation(api.users.updateSettings)
   const updateQualityItem = useMutation(api.quality.updateItem)
   const addQualityItem = useMutation(api.quality.addItem)

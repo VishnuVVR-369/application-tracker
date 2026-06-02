@@ -9,16 +9,12 @@
  */
 
 import type * as activity from "../activity.js";
-import type * as analytics from "../analytics.js";
 import type * as appData from "../appData.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
-import type * as contacts from "../contacts.js";
-import type * as dashboard from "../dashboard.js";
 import type * as exportData from "../exportData.js";
 import type * as goals from "../goals.js";
 import type * as http from "../http.js";
-import type * as interviews from "../interviews.js";
 import type * as model from "../model.js";
 import type * as quality from "../quality.js";
 import type * as resumes from "../resumes.js";
@@ -34,16 +30,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activity: typeof activity;
-  analytics: typeof analytics;
   appData: typeof appData;
   applications: typeof applications;
   auth: typeof auth;
-  contacts: typeof contacts;
-  dashboard: typeof dashboard;
   exportData: typeof exportData;
   goals: typeof goals;
   http: typeof http;
-  interviews: typeof interviews;
   model: typeof model;
   quality: typeof quality;
   resumes: typeof resumes;

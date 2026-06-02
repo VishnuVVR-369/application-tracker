@@ -1,8 +1,8 @@
 import { v } from "convex/values"
 
 import type { Id } from "./_generated/dataModel"
-import { mutation, query, type MutationCtx } from "./_generated/server"
-import { dateKeyFromTimestamp, removeUndefined } from "./model"
+import { mutation, type MutationCtx } from "./_generated/server"
+import { dateKeyFromTimestamp } from "./model"
 import { taskKind } from "./schema"
 import { getCurrentUserDoc } from "./users"
 
@@ -76,17 +76,6 @@ async function insertTaskActivity(args: {
     createdAt: args.at,
   })
 }
-
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getCurrentUserDoc(ctx)
-    return await ctx.db
-      .query("tasks")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
-  },
-})
 
 export const create = mutation({
   args: {
@@ -179,56 +168,5 @@ export const complete = mutation({
         })
       }
     }
-  },
-})
-
-export const dismiss = mutation({
-  args: { id: v.id("tasks") },
-  handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx)
-    const task = await ctx.db.get(args.id)
-    if (!task || task.userId !== user._id) {
-      throw new Error("Task not found")
-    }
-
-    const now = Date.now()
-    await ctx.db.patch(args.id, {
-      status: "dismissed",
-      dismissedAt: now,
-      updatedAt: now,
-    })
-  },
-})
-
-export const update = mutation({
-  args: {
-    id: v.id("tasks"),
-    title: v.optional(v.string()),
-    description: v.optional(v.string()),
-    dueAt: v.optional(v.number()),
-    dueDate: v.optional(v.string()),
-    timezone: v.optional(v.string()),
-    kind: v.optional(taskKind),
-    kindDetail: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx)
-    const task = await ctx.db.get(args.id)
-    if (!task || task.userId !== user._id) {
-      throw new Error("Task not found")
-    }
-    await ctx.db.patch(
-      args.id,
-      removeUndefined({
-        title: args.title,
-        description: args.description,
-        dueAt: args.dueAt,
-        dueDate: args.dueDate,
-        timezone: args.timezone,
-        kind: args.kind,
-        kindDetail: args.kindDetail,
-        updatedAt: Date.now(),
-      })
-    )
   },
 })

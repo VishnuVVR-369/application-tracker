@@ -44,6 +44,7 @@ describe("analytics-model", () => {
       stage: "phone_screen",
       enteredAt: Date.parse("2026-06-04T00:00:00.000Z"),
       enteredFromStage: "applied",
+      source: "user",
       createdAt: Date.parse("2026-06-04T00:00:00.000Z"),
       updatedAt: Date.parse("2026-06-04T00:00:00.000Z"),
     }

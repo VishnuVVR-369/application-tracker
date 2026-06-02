@@ -1,7 +1,15 @@
 import Link from "next/link"
 import { Sparkles, Plus } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   APPLICATION_STAGES,
@@ -9,15 +17,6 @@ import {
   type ApplicationStage,
 } from "@/lib/application-model"
 import { cn } from "@/lib/utils"
-
-const stageClasses: Record<ApplicationStage, string> = {
-  saved: "border-stage-saved/50 bg-stage-saved/10 text-stage-saved",
-  applied: "border-stage-applied/50 bg-stage-applied/10 text-stage-applied",
-  phone_screen: "border-stage-phone/50 bg-stage-phone/10 text-stage-phone",
-  interview: "border-stage-interview/50 bg-stage-interview/10 text-stage-interview",
-  offer: "border-stage-offer/50 bg-stage-offer/10 text-stage-offer",
-  closed: "border-stage-closed/50 bg-stage-closed/10 text-stage-closed",
-}
 
 export function PageHeader({
   eyebrow,
@@ -96,17 +95,18 @@ export function Panel({
   )
 }
 
-export function StageBadge({ stage }: { stage: ApplicationStage }) {
+export function StageBadge({
+  stage,
+  className,
+}: {
+  stage: ApplicationStage
+  className?: string
+}) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium",
-        stageClasses[stage]
-      )}
-    >
+    <Badge variant={stage} className={cn("gap-1.5", className)}>
       <span className="size-1.5 rounded-full bg-current" />
       {STAGE_LABELS[stage]}
-    </span>
+    </Badge>
   )
 }
 
@@ -115,12 +115,14 @@ export function EmptyState({
   description,
   href,
   actionLabel,
+  action,
   icon: Icon = Sparkles,
 }: {
   title: string
   description: string
   href?: string
   actionLabel?: string
+  action?: React.ReactNode
   icon?: React.ComponentType<{ className?: string }>
 }) {
   return (
@@ -136,13 +138,18 @@ export function EmptyState({
       <p className="relative mt-1.5 max-w-md text-sm leading-relaxed text-ink-300">
         {description}
       </p>
-      {href && actionLabel && (
-        <Button asChild className="relative mt-5">
-          <Link href={href}>
-            <Plus className="size-4" />
-            {actionLabel}
-          </Link>
-        </Button>
+      {action ? (
+        <div className="relative mt-5">{action}</div>
+      ) : (
+        href &&
+        actionLabel && (
+          <Button asChild className="relative mt-5">
+            <Link href={href}>
+              <Plus className="size-4" />
+              {actionLabel}
+            </Link>
+          </Button>
+        )
       )}
     </div>
   )
@@ -194,49 +201,64 @@ export function StageSelect({
   className?: string
 }) {
   return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value as ApplicationStage)}
-      className={cn(
-        "h-8 rounded-md border border-line bg-surface-1 px-2 text-sm text-ink-100 outline-none transition-colors hover:border-line-strong focus:ring-3 focus:ring-ring/50",
-        className
-      )}
-    >
-      {APPLICATION_STAGES.map((stage) => (
-        <option key={stage} value={stage}>
-          {STAGE_LABELS[stage]}
-        </option>
-      ))}
-    </select>
+    <Select value={value} onValueChange={(next) => onChange(next as ApplicationStage)}>
+      <SelectTrigger
+        aria-label="Move to stage"
+        className={cn("h-8 w-full bg-surface-1", className)}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {APPLICATION_STAGES.map((stage) => (
+          <SelectItem key={stage} value={stage}>
+            {STAGE_LABELS[stage]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
-export function NativeSelect<TValue extends string>({
+// Radix Select forbids an empty-string item value, so the "all" option uses a
+// sentinel that maps back to "" through the onChange boundary.
+const FILTER_ALL = "__all__"
+
+export function FilterSelect<TValue extends string>({
   value,
   onChange,
   options,
+  placeholder = "Any",
   className,
 }: {
   value: TValue | ""
   onChange: (value: TValue | "") => void
   options: Array<{ value: TValue; label: string }>
+  placeholder?: string
   className?: string
 }) {
   return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value as TValue | "")}
-      className={cn(
-        "h-9 rounded-md border border-line bg-surface-1 px-2 text-sm text-ink-100 outline-none transition-colors hover:border-line-strong focus:ring-3 focus:ring-ring/50",
-        className
-      )}
+    <Select
+      value={value === "" ? FILTER_ALL : value}
+      onValueChange={(next) => onChange(next === FILTER_ALL ? "" : (next as TValue))}
     >
-      <option value="">Any</option>
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger
+        aria-label={placeholder}
+        className={cn(
+          "h-9 min-w-[8.5rem] bg-surface-1",
+          value !== "" && "border-brand/40 text-brand",
+          className
+        )}
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={FILTER_ALL}>{placeholder}</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }

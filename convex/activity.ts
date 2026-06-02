@@ -1,26 +1,8 @@
 import { v } from "convex/values"
 
-import { mutation, query } from "./_generated/server"
+import { mutation } from "./_generated/server"
 import { dateKeyFromTimestamp } from "./model"
 import { getCurrentUserDoc } from "./users"
-
-export const listForApplication = query({
-  args: { applicationId: v.id("applications") },
-  handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx)
-    const application = await ctx.db.get(args.applicationId)
-    if (!application || application.userId !== user._id) {
-      return []
-    }
-
-    return await ctx.db
-      .query("activityEvents")
-      .withIndex("by_applicationId_and_eventAt", (q) =>
-        q.eq("applicationId", args.applicationId)
-      )
-      .collect()
-  },
-})
 
 export const addManual = mutation({
   args: {

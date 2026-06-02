@@ -1,6 +1,6 @@
 import { v } from "convex/values"
 
-import { mutation, query } from "./_generated/server"
+import { mutation } from "./_generated/server"
 import { getCurrentUserDoc } from "./users"
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024
@@ -29,35 +29,6 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     await getCurrentUserDoc(ctx)
     return await ctx.storage.generateUploadUrl()
-  },
-})
-
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getCurrentUserDoc(ctx)
-    const resumes = await ctx.db
-      .query("resumes")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
-
-    return await Promise.all(
-      resumes.map(async (resume) => {
-        const usage = await ctx.db
-          .query("applications")
-          .withIndex("by_userId_and_currentResumeId", (q) =>
-            q.eq("userId", user._id).eq("currentResumeId", resume._id)
-          )
-          .collect()
-        const url = await ctx.storage.getUrl(resume.storageId)
-        return {
-          ...resume,
-          url,
-          usageCount: usage.length,
-          usageApplicationIds: usage.map((application) => application._id),
-        }
-      })
-    )
   },
 })
 

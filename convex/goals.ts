@@ -2,11 +2,11 @@ import { v } from "convex/values"
 
 import type { Id } from "./_generated/dataModel"
 import { dateKeyFromTimestamp } from "./model"
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import { mutation, type MutationCtx } from "./_generated/server"
 import { winType } from "./schema"
 import { getCurrentUserDoc } from "./users"
 
-async function getUserTimezone(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
+async function getUserTimezone(ctx: MutationCtx, userId: Id<"users">) {
   const settings = await ctx.db
     .query("userSettings")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -28,19 +28,6 @@ function defaultGoal(weekStartDate: string, userId: Id<"users">, timezone: strin
     updatedAt: now,
   }
 }
-
-export const getByWeek = query({
-  args: { weekStartDate: v.string() },
-  handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx)
-    return await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_userId_and_weekStartDate", (q) =>
-        q.eq("userId", user._id).eq("weekStartDate", args.weekStartDate)
-      )
-      .unique()
-  },
-})
 
 export const upsert = mutation({
   args: {

@@ -1,7 +1,7 @@
 import { v } from "convex/values"
 
 import type { Doc, Id } from "./_generated/dataModel"
-import { mutation, query, type MutationCtx } from "./_generated/server"
+import { mutation, type MutationCtx } from "./_generated/server"
 import {
   applicationSource,
   applicationStage,
@@ -424,29 +424,6 @@ function buildApplicationPatch(args: ApplicationPatchInput) {
     archivedAt: args.archivedAt,
   }) as Partial<Doc<"applications">>
 }
-
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getCurrentUserDoc(ctx)
-    return await ctx.db
-      .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
-  },
-})
-
-export const get = query({
-  args: { id: v.id("applications") },
-  handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx)
-    const application = await ctx.db.get(args.id)
-    if (!application || application.userId !== user._id) {
-      return null
-    }
-    return application
-  },
-})
 
 export const create = mutation({
   args: {

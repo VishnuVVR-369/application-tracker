@@ -46,16 +46,21 @@ function compact<T extends Record<string, unknown>>(value: T) {
   ) as T
 }
 
-export function ApplicationFormSheet({
-  trigger,
-  resumes,
-  application,
-}: ApplicationFormSheetProps) {
-  const [open, setOpen] = React.useState(false)
-  const createApplication = useMutation(api.applications.create)
-  const updateApplication = useMutation(api.applications.update)
-  const [pending, setPending] = React.useState(false)
-  const [form, setForm] = React.useState({
+function optionalNumber(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function trimmedValue(value: string) {
+  return value.trim()
+}
+
+function buildInitialForm(application?: Doc<"applications">) {
+  return {
     companyName: application?.companyName ?? "",
     roleTitle: application?.roleTitle ?? "",
     companyWebsite: application?.companyWebsite ?? "",
@@ -77,7 +82,28 @@ export function ApplicationFormSheet({
     offerResponseDeadlineDate: application?.offerResponseDeadlineDate ?? "",
     jobDescriptionSnapshot: application?.jobDescriptionSnapshot ?? "",
     notes: application?.notes ?? "",
-  })
+  }
+}
+
+export function ApplicationFormSheet({
+  trigger,
+  resumes,
+  application,
+}: ApplicationFormSheetProps) {
+  const [open, setOpen] = React.useState(false)
+  const createApplication = useMutation(api.applications.create)
+  const updateApplication = useMutation(api.applications.update)
+  const [pending, setPending] = React.useState(false)
+  const [formError, setFormError] = React.useState("")
+  const [form, setForm] = React.useState(() => buildInitialForm(application))
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setForm(buildInitialForm(application))
+      setFormError("")
+    }
+    setOpen(nextOpen)
+  }
 
   function updateField(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -86,19 +112,28 @@ export function ApplicationFormSheet({
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPending(true)
+    setFormError("")
+    const companyName = trimmedValue(form.companyName)
+    const roleTitle = trimmedValue(form.roleTitle)
+
+    if (!companyName || !roleTitle) {
+      setFormError("Company and role are required.")
+      setPending(false)
+      return
+    }
 
     const payload = compact({
-      companyName: form.companyName,
-      roleTitle: form.roleTitle,
-      companyWebsite: form.companyWebsite,
-      location: form.location,
+      companyName,
+      roleTitle,
+      companyWebsite: trimmedValue(form.companyWebsite),
+      location: trimmedValue(form.location),
       workArrangement: form.workArrangement,
-      compensationMin: form.compensationMin ? Number(form.compensationMin) : undefined,
-      compensationMax: form.compensationMax ? Number(form.compensationMax) : undefined,
-      compensationCurrency: form.compensationCurrency,
-      postingUrl: form.postingUrl,
+      compensationMin: optionalNumber(form.compensationMin),
+      compensationMax: optionalNumber(form.compensationMax),
+      compensationCurrency: trimmedValue(form.compensationCurrency).toUpperCase() || undefined,
+      postingUrl: trimmedValue(form.postingUrl),
       source: form.source,
-      sourceDetail: form.sourceDetail,
+      sourceDetail: trimmedValue(form.sourceDetail),
       dateAppliedDate: form.dateAppliedDate,
       stage: form.stage,
       referralStatus: form.referralStatus,
@@ -107,8 +142,8 @@ export function ApplicationFormSheet({
       applicationDeadlineDate: form.applicationDeadlineDate,
       takeHomeDeadlineDate: form.takeHomeDeadlineDate,
       offerResponseDeadlineDate: form.offerResponseDeadlineDate,
-      jobDescriptionSnapshot: form.jobDescriptionSnapshot,
-      notes: form.notes,
+      jobDescriptionSnapshot: trimmedValue(form.jobDescriptionSnapshot),
+      notes: trimmedValue(form.notes),
     }) as Parameters<typeof createApplication>[0]
 
     try {
@@ -119,15 +154,18 @@ export function ApplicationFormSheet({
         } as Parameters<typeof updateApplication>[0])
       } else {
         await createApplication(payload)
+        setForm(buildInitialForm())
       }
       setOpen(false)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Could not save application")
     } finally {
       setPending(false)
     }
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
@@ -326,6 +364,12 @@ export function ApplicationFormSheet({
           <Field label="Notes">
             <Textarea value={form.notes} onChange={(event) => updateField("notes", event.target.value)} />
           </Field>
+
+          {formError && (
+            <p className="rounded-md border border-status-down/30 bg-status-down/10 px-3 py-2 text-sm text-status-down">
+              {formError}
+            </p>
+          )}
 
           <SheetFooter className="-mx-4 -mb-4 mt-2 flex-row justify-end gap-2 border-t border-line/70 bg-surface-1/40 px-4">
             <SheetClose asChild>

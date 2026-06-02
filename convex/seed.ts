@@ -138,11 +138,11 @@ async function ensureSeedUser(
   const existing = bySubject ?? byEmail
   if (existing) {
     await ctx.db.patch(existing._id, {
-      authSubject: existing.authSubject ?? args.authSubject,
-      tokenIdentifier: existing.tokenIdentifier ?? args.tokenIdentifier,
-      name: existing.name ?? args.name,
-      email: existing.email ?? args.email,
-      normalizedEmail: existing.normalizedEmail ?? normalizedEmail,
+      authSubject: args.authSubject,
+      tokenIdentifier: args.tokenIdentifier,
+      name: args.name,
+      email: args.email,
+      normalizedEmail,
       lastSeenAt: now,
       updatedAt: now,
     })

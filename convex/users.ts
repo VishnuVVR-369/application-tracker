@@ -54,14 +54,7 @@ async function findUserByIdentity(ctx: QueryCtx | MutationCtx) {
     return { identity, user: bySubject }
   }
 
-  const byToken = await ctx.db
-    .query("users")
-    .withIndex("by_tokenIdentifier", (q) =>
-      q.eq("tokenIdentifier", identity.tokenIdentifier)
-    )
-    .unique()
-
-  return byToken ? { identity, user: byToken } : { identity, user: null }
+  return { identity, user: null }
 }
 
 export async function getCurrentUserDoc(ctx: QueryCtx | MutationCtx) {
@@ -84,7 +77,7 @@ async function ensureSettings(
   ctx: MutationCtx,
   userId: Id<"users">,
   displayName?: string,
-  timezone = DEFAULT_TIMEZONE
+  timezone?: string
 ) {
   const existing = await ctx.db
     .query("userSettings")
@@ -97,7 +90,7 @@ async function ensureSettings(
       userId,
       displayName,
       theme: "dark",
-      timezone,
+      timezone: timezone ?? DEFAULT_TIMEZONE,
       weekStartsOn: "monday",
       createdAt: now,
       updatedAt: now,
@@ -106,9 +99,9 @@ async function ensureSettings(
   }
 
   await ctx.db.patch(existing._id, {
-    displayName: existing.displayName ?? displayName,
-    theme: existing.theme ?? "dark",
-    timezone: existing.timezone ?? timezone,
+    displayName: displayName ?? existing.displayName,
+    theme: existing.theme,
+    timezone: timezone ?? existing.timezone,
     weekStartsOn: "monday",
     updatedAt: now,
   })

@@ -346,6 +346,8 @@ export type ApplicationStageHistory = {
   exitedAt?: number
   enteredFromStage?: ApplicationStage
   exitedToStage?: ApplicationStage
+  source: "user" | "system" | "import"
+  activityEventId?: string
   createdAt: number
   updatedAt: number
 }
@@ -354,14 +356,17 @@ export type ApplicationContact = {
   id: string
   applicationId: string
   name: string
+  normalizedName?: string
   relationshipType: "recruiter" | "referrer" | "hiring_manager" | "interviewer" | "employee" | "other"
   relationshipDetail?: string
   roleTitle?: string
   email?: string
+  normalizedEmail?: string
   phone?: string
   linkedinUrl?: string
   notes?: string
   archived: boolean
+  archivedAt?: number
   createdAt: number
   updatedAt: number
 }
@@ -372,7 +377,9 @@ export type ApplicationInterview = {
   roundNumber?: number
   roundLabel?: string
   interviewType?: string
+  interviewTypeDetail?: string
   format?: string
+  formatDetail?: string
   status: "scheduled" | "completed" | "canceled" | "rescheduled" | "no_show"
   scheduledAt?: number
   scheduledDate?: string
@@ -380,10 +387,13 @@ export type ApplicationInterview = {
   durationMinutes?: number
   contactIds: string[]
   prepNotes?: string
+  questions?: string
   feedback?: string
   result?: string
   createdAt: number
   updatedAt: number
+  completedAt?: number
+  canceledAt?: number
 }
 
 export type ApplicationOffer = {
@@ -515,11 +525,13 @@ export function getApplicationPrimaryDeadline(application: ApplicationRecord) {
 }
 
 export function formatApplicationSalary(application: ApplicationRecord) {
-  if (!application.compensationMin && !application.compensationMax) {
+  if (application.compensationMin === undefined && application.compensationMax === undefined) {
     return application.compensationNotes ?? "Not set"
   }
 
-  const currency = application.compensationCurrency ?? "USD"
+  const currency = application.compensationCurrency && /^[A-Z]{3}$/.test(application.compensationCurrency)
+    ? application.compensationCurrency
+    : "USD"
   const format = (value: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -528,7 +540,7 @@ export function formatApplicationSalary(application: ApplicationRecord) {
     }).format(value)
 
   const range =
-    application.compensationMin && application.compensationMax
+    application.compensationMin !== undefined && application.compensationMax !== undefined
       ? `${format(application.compensationMin)} - ${format(application.compensationMax)}`
       : format(application.compensationMin ?? application.compensationMax ?? 0)
 
