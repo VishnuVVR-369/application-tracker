@@ -1,5 +1,5 @@
-import { GoalsPage } from "@/components/application-tracker/goals-page"
+import { redirect } from "next/navigation"
 
 export default function Page() {
-  return <GoalsPage />
+  redirect("/app/insights")
 }

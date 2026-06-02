@@ -1,5 +1,5 @@
-import { DashboardPage } from "@/components/application-tracker/dashboard-page"
+import { TodayPage } from "@/components/application-tracker/today-page"
 
 export default function Page() {
-  return <DashboardPage />
+  return <TodayPage />
 }

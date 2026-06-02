@@ -7,13 +7,14 @@ import { motion, useReducedMotion } from "motion/react"
 import {
   BarChart3,
   BriefcaseBusiness,
+  CalendarClock,
   ChevronLeft,
   FileText,
   Gauge,
   LogOut,
   Menu,
   Settings,
-  Target,
+  Users,
 } from "lucide-react"
 
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -34,14 +35,16 @@ import {
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { MeshBackground } from "./atmosphere"
+import { QuickActions } from "./command-palette"
 import { useAppData } from "./use-app-data"
 
 const navItems = [
-  { href: "/app", label: "Dashboard", icon: Gauge },
-  { href: "/app/applications", label: "Applications", icon: BriefcaseBusiness },
+  { href: "/app", label: "Today", icon: Gauge },
+  { href: "/app/applications", label: "Pipeline", icon: BriefcaseBusiness },
+  { href: "/app/interviews", label: "Interviews", icon: CalendarClock },
+  { href: "/app/people", label: "People", icon: Users },
   { href: "/app/documents", label: "Documents", icon: FileText },
-  { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/app/goals", label: "Goals", icon: Target },
+  { href: "/app/insights", label: "Insights", icon: BarChart3 },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ] as const
 
@@ -247,13 +250,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full border border-status-up/30 bg-status-up/10 px-2.5 py-1 text-xs font-medium text-status-up sm:inline-flex">
-              <span className="relative flex size-1.5">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-status-up opacity-60" />
-                <span className="relative inline-flex size-1.5 rounded-full bg-status-up" />
-              </span>
-              live
-            </span>
+            <QuickActions />
             <div className="lg:hidden">
               <ThemeToggle />
             </div>

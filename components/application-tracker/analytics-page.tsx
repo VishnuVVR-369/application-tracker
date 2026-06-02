@@ -64,6 +64,19 @@ function FilterToggle({
 }
 
 export function AnalyticsPage() {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Analytics"
+        title="Funnel, timing, segments, and rejection patterns"
+        description="Filters are explicit. Archived and closed applications are excluded by default."
+      />
+      <AnalyticsView />
+    </>
+  )
+}
+
+export function AnalyticsView() {
   const { data, isLoading } = useAppData()
   const [includeArchived, setIncludeArchived] = React.useState(false)
   const [includeClosed, setIncludeClosed] = React.useState(false)
@@ -94,12 +107,6 @@ export function AnalyticsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Analytics"
-        title="Funnel, timing, segments, and rejection patterns"
-        description="Filters are explicit. Archived and closed applications are excluded by default."
-      />
-
       <div className="glass mb-4 flex flex-wrap items-center gap-3 rounded-xl p-3">
         <span className="micro-label flex items-center gap-1.5">
           <Filter className="size-3.5" />

@@ -16,6 +16,7 @@ import {
   Plus,
   RotateCcw,
   UserCheck,
+  Users,
 } from "lucide-react"
 
 import { api } from "@/convex/_generated/api"
@@ -45,6 +46,7 @@ import {
   type ReferralStatus,
 } from "@/lib/application-model"
 import { formatShortDate } from "@/lib/date-model"
+import { getInterviewStart } from "@/lib/interview-model"
 import { calculateQualityScore } from "@/lib/quality-model"
 import { cn } from "@/lib/utils"
 import { ApplicationFormSheet } from "./application-form-sheet"
@@ -57,7 +59,7 @@ import {
   StageBadge,
   StageSelect,
 } from "./common"
-import { mapApplication } from "./data-mappers"
+import { mapApplication, mapInterview } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
 const stageDot: Record<ApplicationStage, string> = {
@@ -182,6 +184,7 @@ export function ApplicationsPage() {
   const [sort, setSort] = React.useState<SortState | null>(null)
   const [draggedId, setDraggedId] = React.useState<string | null>(null)
   const [dragOverStage, setDragOverStage] = React.useState<ApplicationStage | null>(null)
+  const [now] = React.useState(() => Date.now())
 
   if (isLoading) {
     return <LoadingPanels />
@@ -197,6 +200,22 @@ export function ApplicationsPage() {
   }
 
   const allApplications = data.applications.map(mapApplication)
+
+  // Per-application enrichment for cards/rows: soonest upcoming interview and
+  // how many people are attached.
+  const nextInterviewByApp = new Map<string, number>()
+  for (const interview of data.applicationInterviews.map(mapInterview)) {
+    if (interview.status !== "scheduled" && interview.status !== "rescheduled") continue
+    const start = getInterviewStart(interview)
+    if (start === undefined || start < now) continue
+    const current = nextInterviewByApp.get(interview.applicationId)
+    if (current === undefined || start < current) nextInterviewByApp.set(interview.applicationId, start)
+  }
+  const contactCountByApp = new Map<string, number>()
+  for (const contact of data.applicationContacts) {
+    contactCountByApp.set(contact.applicationId, (contactCountByApp.get(contact.applicationId) ?? 0) + 1)
+  }
+
   const filtersActive = Boolean(stageFilter || sourceFilter || referralFilter || includeArchived)
 
   const applications = allApplications
@@ -237,7 +256,7 @@ export function ApplicationsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Applications"
+        eyebrow="Pipeline"
         title="Pipeline board and list"
         description="Drag cards between any stages, or use the stage menu for a keyboard-friendly direct move."
         action={
@@ -439,6 +458,23 @@ export function ApplicationsPage() {
                                       <TooltipContent>Referred</TooltipContent>
                                     </Tooltip>
                                   )}
+                                  {nextInterviewByApp.has(application.id) && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex items-center gap-1 font-mono text-[11px] tabular text-stage-interview">
+                                          <CalendarClock className="size-3" />
+                                          {formatShortDate(nextInterviewByApp.get(application.id))}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Next interview</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {(contactCountByApp.get(application.id) ?? 0) > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] text-ink-500">
+                                      <Users className="size-3" />
+                                      {contactCountByApp.get(application.id)}
+                                    </span>
+                                  )}
                                   {deadline && (
                                     <span className="inline-flex items-center gap-1 font-mono text-[11px] tabular text-status-warn">
                                       <CalendarClock className="size-3" />
@@ -480,6 +516,7 @@ export function ApplicationsPage() {
                     <SortableHead column="referral" label="Referral" sort={sort} onSort={toggleSort} />
                     <SortableHead column="applied" label="Applied" sort={sort} onSort={toggleSort} />
                     <SortableHead column="deadline" label="Deadline" sort={sort} onSort={toggleSort} />
+                    <TableHead className="h-9 px-4 text-xs font-medium text-ink-500">Next</TableHead>
                     <SortableHead column="quality" label="Quality" sort={sort} onSort={toggleSort} />
                   </TableRow>
                 </TableHeader>
@@ -510,6 +547,16 @@ export function ApplicationsPage() {
                       </TableCell>
                       <TableCell className="px-4 py-2.5 font-mono text-xs tabular text-ink-300">
                         {formatShortDate(deadline)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 font-mono text-xs tabular">
+                        {nextInterviewByApp.has(application.id) ? (
+                          <span className="inline-flex items-center gap-1 text-stage-interview">
+                            <CalendarClock className="size-3" />
+                            {formatShortDate(nextInterviewByApp.get(application.id))}
+                          </span>
+                        ) : (
+                          <span className="text-ink-500">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="px-4 py-2.5">
                         <QualityMeter score={score} />

@@ -35,9 +35,11 @@ import {
 } from "@/lib/application-model"
 
 type ApplicationFormSheetProps = {
-  trigger: React.ReactNode
+  trigger?: React.ReactNode
   resumes: Doc<"resumes">[]
   application?: Doc<"applications">
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 function compact<T extends Record<string, unknown>>(value: T) {
@@ -89,13 +91,24 @@ export function ApplicationFormSheet({
   trigger,
   resumes,
   application,
+  open: controlledOpen,
+  onOpenChange,
 }: ApplicationFormSheetProps) {
-  const [open, setOpen] = React.useState(false)
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
   const createApplication = useMutation(api.applications.create)
   const updateApplication = useMutation(api.applications.update)
   const [pending, setPending] = React.useState(false)
   const [formError, setFormError] = React.useState("")
   const [form, setForm] = React.useState(() => buildInitialForm(application))
+
+  const setOpen = React.useCallback(
+    (next: boolean) => {
+      setUncontrolledOpen(next)
+      onOpenChange?.(next)
+    },
+    [onOpenChange]
+  )
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
@@ -166,14 +179,10 @@ export function ApplicationFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetTrigger asChild>{trigger}</SheetTrigger>
+      {trigger && <SheetTrigger asChild>{trigger}</SheetTrigger>}
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>{application ? "Edit application" : "New application"}</SheetTitle>
-          <SheetDescription>
-            Keep the application as the source of truth for stage, resume, quality, deadlines,
-            and outcomes.
-          </SheetDescription>
         </SheetHeader>
         <form onSubmit={onSubmit} className="grid gap-4 px-4 pb-4 pt-2">
           <SectionLabel>Basics</SectionLabel>

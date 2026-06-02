@@ -43,6 +43,19 @@ const winMeta: Record<string, { icon: React.ComponentType<{ className?: string }
 }
 
 export function GoalsPage() {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Goals"
+        title="Weekly cadence"
+        description="Weeks start on Monday. Applications, follow-ups, and interviews are computed from database activity."
+      />
+      <GoalsView />
+    </>
+  )
+}
+
+export function GoalsView() {
   const { data, isLoading } = useAppData()
   const upsertGoal = useMutation(api.goals.upsert)
   const addWin = useMutation(api.goals.addWin)
@@ -98,23 +111,18 @@ export function GoalsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Goals"
-        title="Weekly cadence"
-        description="Weeks start on Monday. Applications, follow-ups, and interviews are computed from database activity."
-        action={
-          <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-1/70 px-3 py-1.5">
-            <CalendarDays className="size-4 text-ink-500" />
-            <span className="text-xs text-ink-300">Week of</span>
-            <input
-              type="date"
-              value={weekStart}
-              onChange={(event) => setWeekStart(event.target.value)}
-              className="bg-transparent font-mono text-sm tabular text-ink-100 outline-none"
-            />
-          </div>
-        }
-      />
+      <div className="mb-4 flex items-center justify-end">
+        <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-1/70 px-3 py-1.5">
+          <CalendarDays className="size-4 text-ink-500" />
+          <span className="text-xs text-ink-300">Week of</span>
+          <input
+            type="date"
+            value={weekStart}
+            onChange={(event) => setWeekStart(event.target.value)}
+            className="bg-transparent font-mono text-sm tabular text-ink-100 outline-none"
+          />
+        </div>
+      </div>
 
       <Stagger className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
         <StaggerItem>

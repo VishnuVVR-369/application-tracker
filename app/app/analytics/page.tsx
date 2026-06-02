@@ -1,5 +1,5 @@
-import { AnalyticsPage } from "@/components/application-tracker/analytics-page"
+import { redirect } from "next/navigation"
 
 export default function Page() {
-  return <AnalyticsPage />
+  redirect("/app/insights")
 }
