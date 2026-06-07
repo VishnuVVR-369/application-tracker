@@ -26,5 +26,10 @@ export function normalizeAppData(data: RawAppData | undefined): RawAppData | und
     weeklyGoals: partial.weeklyGoals ?? [],
     winLogEntries: partial.winLogEntries ?? [],
     qualityChecklistItems: partial.qualityChecklistItems ?? [],
+    targetCompanies: partial.targetCompanies ?? [],
+    referralOutreach: partial.referralOutreach ?? [],
+    interviewPrepPlans: partial.interviewPrepPlans ?? [],
+    storyBankEntries: partial.storyBankEntries ?? [],
+    storyUsages: partial.storyUsages ?? [],
   } as AppData
 }

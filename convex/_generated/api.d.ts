@@ -19,9 +19,12 @@ import type * as http from "../http.js";
 import type * as interviews from "../interviews.js";
 import type * as model from "../model.js";
 import type * as offers from "../offers.js";
+import type * as prep from "../prep.js";
 import type * as quality from "../quality.js";
 import type * as resumes from "../resumes.js";
 import type * as seed from "../seed.js";
+import type * as stories from "../stories.js";
+import type * as targets from "../targets.js";
 import type * as tasks from "../tasks.js";
 import type * as users from "../users.js";
 
@@ -43,9 +46,12 @@ declare const fullApi: ApiFromModules<{
   interviews: typeof interviews;
   model: typeof model;
   offers: typeof offers;
+  prep: typeof prep;
   quality: typeof quality;
   resumes: typeof resumes;
   seed: typeof seed;
+  stories: typeof stories;
+  targets: typeof targets;
   tasks: typeof tasks;
   users: typeof users;
 }>;

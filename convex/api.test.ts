@@ -250,4 +250,78 @@ describe("convex api", () => {
     expect(snapshot.task?.completedAt).toEqual(Date.parse("2026-06-06T09:00:00.000Z"))
     expect(snapshot.wins.filter((win) => win.type === "follow_up_completed")).toHaveLength(1)
   })
+
+  it("creates target companies, referral outreach, prep plans, and story usage", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-07T09:00:00.000Z"))
+
+    const authed = testClient()
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    const applicationId = await authed.mutation(api.applications.create, {
+      companyName: "MetaCloud",
+      roleTitle: "Senior Backend Engineer",
+      stage: "applied",
+      applicationType: "referral_backed",
+    })
+    const targetCompanyId = await authed.mutation(api.targets.createCompany, {
+      companyName: "MetaCloud",
+      website: "https://www.metacloud.example/careers#top",
+      tier: "dream",
+      status: "warming_referrals",
+      targetRoles: ["Senior Backend Engineer"],
+      priorityScore: 95,
+      roleFitScore: 85,
+      referralGoal: 2,
+    })
+    const outreachId = await authed.mutation(api.targets.createOutreach, {
+      targetCompanyId,
+      applicationId,
+      contactName: "Arjun Rao",
+      source: "linkedin",
+      status: "messaged",
+      email: "ARJUN@EXAMPLE.COM",
+      followUpDate: "2026-06-10",
+    })
+    await authed.mutation(api.targets.updateOutreach, {
+      id: outreachId,
+      status: "replied",
+      lastContactedDate: "2026-06-07",
+    })
+    const prepPlanId = await authed.mutation(api.prep.createPlan, {
+      applicationId,
+      targetCompanyId,
+      title: "MetaCloud interview loop",
+      status: "in_progress",
+      focusAreas: ["dsa", "system_design", "behavioral"],
+      codingDrillsTarget: 20,
+      codingDrillsDone: 8,
+    })
+    const storyId = await authed.mutation(api.stories.createStory, {
+      title: "Scaled ingestion platform",
+      situation: "A critical ingestion path was unreliable under burst traffic.",
+      task: "Own the stabilization plan for customer-facing reliability.",
+      action: "Added backpressure, bounded retries, rollout gates, and better dashboards.",
+      result: "Reduced incidents and improved on-call diagnosis.",
+      impactMetrics: "45% fewer pages.",
+      competencies: ["ownership", "technical_depth"],
+      technologies: ["Kafka"],
+    })
+    const usageId = await authed.mutation(api.stories.recordUsage, {
+      storyId,
+      applicationId,
+      confidence: "high",
+      usedAtDate: "2026-06-07",
+    })
+
+    const snapshot = await authed.query(api.appData.get)
+
+    expect(snapshot?.targetCompanies.map((target) => target._id)).toEqual([targetCompanyId])
+    expect(snapshot?.targetCompanies[0].domain).toBe("metacloud.example")
+    expect(snapshot?.referralOutreach[0]._id).toBe(outreachId)
+    expect(snapshot?.referralOutreach[0].normalizedEmail).toBe("arjun@example.com")
+    expect(snapshot?.referralOutreach[0].status).toBe("replied")
+    expect(snapshot?.interviewPrepPlans[0]._id).toBe(prepPlanId)
+    expect(snapshot?.storyBankEntries[0]._id).toBe(storyId)
+    expect(snapshot?.storyUsages[0]._id).toBe(usageId)
+  })
 })

@@ -27,6 +27,38 @@ export const referralStatus = v.union(
   v.literal("referred")
 )
 
+export const targetCompanyTier = v.union(
+  v.literal("dream"),
+  v.literal("strong"),
+  v.literal("backup")
+)
+
+export const targetCompanyStatus = v.union(
+  v.literal("researching"),
+  v.literal("warming_referrals"),
+  v.literal("ready_to_apply"),
+  v.literal("applied"),
+  v.literal("paused")
+)
+
+export const referralOutreachStatus = v.union(
+  v.literal("not_contacted"),
+  v.literal("messaged"),
+  v.literal("replied"),
+  v.literal("call_booked"),
+  v.literal("referred"),
+  v.literal("declined")
+)
+
+export const referralOutreachSource = v.union(
+  v.literal("linkedin"),
+  v.literal("alumni"),
+  v.literal("ex_coworker"),
+  v.literal("friend_of_friend"),
+  v.literal("community"),
+  v.literal("other")
+)
+
 export const workArrangement = v.union(
   v.literal("remote"),
   v.literal("hybrid"),
@@ -189,6 +221,34 @@ export const interviewResult = v.union(
   v.literal("negative"),
   v.literal("neutral"),
   v.literal("unknown")
+)
+
+export const prepFocusArea = v.union(
+  v.literal("dsa"),
+  v.literal("system_design"),
+  v.literal("behavioral"),
+  v.literal("company_research"),
+  v.literal("resume_deep_dive"),
+  v.literal("domain_knowledge")
+)
+
+export const prepPlanStatus = v.union(
+  v.literal("not_started"),
+  v.literal("in_progress"),
+  v.literal("ready"),
+  v.literal("needs_work")
+)
+
+export const storyCompetency = v.union(
+  v.literal("ownership"),
+  v.literal("technical_depth"),
+  v.literal("system_design"),
+  v.literal("collaboration"),
+  v.literal("conflict"),
+  v.literal("ambiguity"),
+  v.literal("customer_impact"),
+  v.literal("leadership"),
+  v.literal("execution")
 )
 
 export const winType = v.union(
@@ -499,6 +559,133 @@ export default defineSchema({
     .index("by_userId_and_enabled", ["userId", "enabled"])
     .index("by_userId_and_sortOrder", ["userId", "sortOrder"])
     .index("by_userId_and_key", ["userId", "key"]),
+
+  targetCompanies: defineTable({
+    userId: v.id("users"),
+    companyName: v.string(),
+    companyKey: v.string(),
+    website: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    tier: targetCompanyTier,
+    status: targetCompanyStatus,
+    targetRoles: v.array(v.string()),
+    targetLevel: v.optional(v.string()),
+    locationPreference: v.optional(v.string()),
+    workArrangement: v.optional(workArrangement),
+    priorityScore: v.number(),
+    roleFitScore: v.number(),
+    referralGoal: v.number(),
+    applicationWindowStartDate: v.optional(v.string()),
+    applicationWindowEndDate: v.optional(v.string()),
+    researchNotes: v.optional(v.string()),
+    hiringBarNotes: v.optional(v.string()),
+    interviewProcessNotes: v.optional(v.string()),
+    compensationNotes: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    archived: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_companyKey", ["userId", "companyKey"])
+    .index("by_userId_and_tier", ["userId", "tier"])
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_userId_and_archived", ["userId", "archived"])
+    .index("by_userId_and_priorityScore", ["userId", "priorityScore"]),
+
+  referralOutreach: defineTable({
+    userId: v.id("users"),
+    targetCompanyId: v.optional(v.id("targetCompanies")),
+    applicationId: v.optional(v.id("applications")),
+    contactName: v.string(),
+    contactRole: v.optional(v.string()),
+    source: referralOutreachSource,
+    status: referralOutreachStatus,
+    linkedinUrl: v.optional(v.string()),
+    email: v.optional(v.string()),
+    normalizedEmail: v.optional(v.string()),
+    firstContactedDate: v.optional(v.string()),
+    lastContactedDate: v.optional(v.string()),
+    followUpDate: v.optional(v.string()),
+    messageTemplate: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    archived: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_targetCompanyId", ["targetCompanyId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_userId_and_followUpDate", ["userId", "followUpDate"])
+    .index("by_userId_and_archived", ["userId", "archived"]),
+
+  interviewPrepPlans: defineTable({
+    userId: v.id("users"),
+    applicationId: v.optional(v.id("applications")),
+    targetCompanyId: v.optional(v.id("targetCompanies")),
+    title: v.string(),
+    status: prepPlanStatus,
+    focusAreas: v.array(prepFocusArea),
+    codingDrillsTarget: v.number(),
+    codingDrillsDone: v.number(),
+    systemDesignDrillsTarget: v.number(),
+    systemDesignDrillsDone: v.number(),
+    behavioralStoriesTarget: v.number(),
+    behavioralStoriesReady: v.number(),
+    mockInterviewsTarget: v.number(),
+    mockInterviewsDone: v.number(),
+    companyResearchDone: v.boolean(),
+    resumeDeepDiveDone: v.boolean(),
+    weaknessTags: v.array(v.string()),
+    nextAction: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_targetCompanyId", ["targetCompanyId"])
+    .index("by_userId_and_status", ["userId", "status"]),
+
+  storyBankEntries: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    project: v.optional(v.string()),
+    situation: v.string(),
+    task: v.string(),
+    action: v.string(),
+    result: v.string(),
+    impactMetrics: v.optional(v.string()),
+    technologies: v.array(v.string()),
+    competencies: v.array(storyCompetency),
+    senioritySignal: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    archived: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_archived", ["userId", "archived"]),
+
+  storyUsages: defineTable({
+    userId: v.id("users"),
+    storyId: v.id("storyBankEntries"),
+    applicationId: v.optional(v.id("applications")),
+    interviewId: v.optional(v.id("applicationInterviews")),
+    usedAtDate: v.optional(v.string()),
+    confidence: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_storyId", ["storyId"])
+    .index("by_applicationId", ["applicationId"])
+    .index("by_interviewId", ["interviewId"]),
 
   tasks: defineTable({
     userId: v.id("users"),

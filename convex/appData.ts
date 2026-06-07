@@ -23,6 +23,11 @@ export const get = query({
       weeklyGoals,
       winLogEntries,
       qualityChecklistItems,
+      targetCompanies,
+      referralOutreach,
+      interviewPrepPlans,
+      storyBankEntries,
+      storyUsages,
     ] = await Promise.all([
       ctx.db
         .query("userSettings")
@@ -76,6 +81,26 @@ export const get = query({
         .query("qualityChecklistItems")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .collect(),
+      ctx.db
+        .query("targetCompanies")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("referralOutreach")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("interviewPrepPlans")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("storyBankEntries")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
+      ctx.db
+        .query("storyUsages")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .collect(),
     ])
 
     const resumeUsageEntries = await Promise.all(
@@ -111,6 +136,11 @@ export const get = query({
       weeklyGoals,
       winLogEntries,
       qualityChecklistItems,
+      targetCompanies,
+      referralOutreach,
+      interviewPrepPlans,
+      storyBankEntries,
+      storyUsages,
     }
   },
 })

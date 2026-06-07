@@ -63,6 +63,66 @@ export const REFERRAL_LABELS: Record<ReferralStatus, string> = {
   referred: "Referred",
 }
 
+export const TARGET_COMPANY_TIERS = ["dream", "strong", "backup"] as const
+export type TargetCompanyTier = (typeof TARGET_COMPANY_TIERS)[number]
+export const TARGET_COMPANY_TIER_LABELS: Record<TargetCompanyTier, string> = {
+  dream: "Dream",
+  strong: "Strong",
+  backup: "Backup",
+}
+
+export const TARGET_COMPANY_STATUSES = [
+  "researching",
+  "warming_referrals",
+  "ready_to_apply",
+  "applied",
+  "paused",
+] as const
+export type TargetCompanyStatus = (typeof TARGET_COMPANY_STATUSES)[number]
+export const TARGET_COMPANY_STATUS_LABELS: Record<TargetCompanyStatus, string> = {
+  researching: "Researching",
+  warming_referrals: "Warming referrals",
+  ready_to_apply: "Ready to apply",
+  applied: "Applied",
+  paused: "Paused",
+}
+
+export const REFERRAL_OUTREACH_STATUSES = [
+  "not_contacted",
+  "messaged",
+  "replied",
+  "call_booked",
+  "referred",
+  "declined",
+] as const
+export type ReferralOutreachStatus = (typeof REFERRAL_OUTREACH_STATUSES)[number]
+export const REFERRAL_OUTREACH_STATUS_LABELS: Record<ReferralOutreachStatus, string> = {
+  not_contacted: "Not contacted",
+  messaged: "Messaged",
+  replied: "Replied",
+  call_booked: "Call booked",
+  referred: "Referred",
+  declined: "Declined",
+}
+
+export const REFERRAL_OUTREACH_SOURCES = [
+  "linkedin",
+  "alumni",
+  "ex_coworker",
+  "friend_of_friend",
+  "community",
+  "other",
+] as const
+export type ReferralOutreachSource = (typeof REFERRAL_OUTREACH_SOURCES)[number]
+export const REFERRAL_OUTREACH_SOURCE_LABELS: Record<ReferralOutreachSource, string> = {
+  linkedin: "LinkedIn",
+  alumni: "Alumni",
+  ex_coworker: "Ex-coworker",
+  friend_of_friend: "Friend of friend",
+  community: "Community",
+  other: "Other",
+}
+
 export const WORK_ARRANGEMENTS = ["remote", "hybrid", "onsite"] as const
 
 export type WorkArrangement = (typeof WORK_ARRANGEMENTS)[number]
@@ -255,6 +315,56 @@ export type ApplicationResumeLink = {
     mimeType: "application/pdf"
     sizeBytes: number
   }
+  createdAt: number
+  updatedAt: number
+}
+
+export type TargetCompanyRecord = {
+  id: string
+  companyName: string
+  companyKey: string
+  website?: string
+  domain?: string
+  tier: TargetCompanyTier
+  status: TargetCompanyStatus
+  targetRoles: string[]
+  targetLevel?: string
+  locationPreference?: string
+  workArrangement?: WorkArrangement
+  priorityScore: number
+  roleFitScore: number
+  referralGoal: number
+  applicationWindowStartDate?: string
+  applicationWindowEndDate?: string
+  researchNotes?: string
+  hiringBarNotes?: string
+  interviewProcessNotes?: string
+  compensationNotes?: string
+  notes?: string
+  archived: boolean
+  archivedAt?: number
+  createdAt: number
+  updatedAt: number
+}
+
+export type ReferralOutreachRecord = {
+  id: string
+  targetCompanyId?: string
+  applicationId?: string
+  contactName: string
+  contactRole?: string
+  source: ReferralOutreachSource
+  status: ReferralOutreachStatus
+  linkedinUrl?: string
+  email?: string
+  normalizedEmail?: string
+  firstContactedDate?: string
+  lastContactedDate?: string
+  followUpDate?: string
+  messageTemplate?: string
+  notes?: string
+  archived: boolean
+  archivedAt?: number
   createdAt: number
   updatedAt: number
 }
@@ -471,6 +581,112 @@ export type QualityChecklistItem = {
   updatedAt: number
 }
 
+export const PREP_FOCUS_AREAS = [
+  "dsa",
+  "system_design",
+  "behavioral",
+  "company_research",
+  "resume_deep_dive",
+  "domain_knowledge",
+] as const
+export type PrepFocusArea = (typeof PREP_FOCUS_AREAS)[number]
+export const PREP_FOCUS_LABELS: Record<PrepFocusArea, string> = {
+  dsa: "DSA",
+  system_design: "System design",
+  behavioral: "Behavioral",
+  company_research: "Company research",
+  resume_deep_dive: "Resume deep dive",
+  domain_knowledge: "Domain knowledge",
+}
+
+export const PREP_PLAN_STATUSES = ["not_started", "in_progress", "ready", "needs_work"] as const
+export type PrepPlanStatus = (typeof PREP_PLAN_STATUSES)[number]
+export const PREP_PLAN_STATUS_LABELS: Record<PrepPlanStatus, string> = {
+  not_started: "Not started",
+  in_progress: "In progress",
+  ready: "Ready",
+  needs_work: "Needs work",
+}
+
+export type InterviewPrepPlanRecord = {
+  id: string
+  applicationId?: string
+  targetCompanyId?: string
+  title: string
+  status: PrepPlanStatus
+  focusAreas: PrepFocusArea[]
+  codingDrillsTarget: number
+  codingDrillsDone: number
+  systemDesignDrillsTarget: number
+  systemDesignDrillsDone: number
+  behavioralStoriesTarget: number
+  behavioralStoriesReady: number
+  mockInterviewsTarget: number
+  mockInterviewsDone: number
+  companyResearchDone: boolean
+  resumeDeepDiveDone: boolean
+  weaknessTags: string[]
+  nextAction?: string
+  notes?: string
+  createdAt: number
+  updatedAt: number
+}
+
+export const STORY_COMPETENCIES = [
+  "ownership",
+  "technical_depth",
+  "system_design",
+  "collaboration",
+  "conflict",
+  "ambiguity",
+  "customer_impact",
+  "leadership",
+  "execution",
+] as const
+export type StoryCompetency = (typeof STORY_COMPETENCIES)[number]
+export const STORY_COMPETENCY_LABELS: Record<StoryCompetency, string> = {
+  ownership: "Ownership",
+  technical_depth: "Technical depth",
+  system_design: "System design",
+  collaboration: "Collaboration",
+  conflict: "Conflict",
+  ambiguity: "Ambiguity",
+  customer_impact: "Customer impact",
+  leadership: "Leadership",
+  execution: "Execution",
+}
+
+export type StoryBankEntryRecord = {
+  id: string
+  title: string
+  project?: string
+  situation: string
+  task: string
+  action: string
+  result: string
+  impactMetrics?: string
+  technologies: string[]
+  competencies: StoryCompetency[]
+  senioritySignal?: string
+  notes?: string
+  archived: boolean
+  archivedAt?: number
+  createdAt: number
+  updatedAt: number
+}
+
+export type StoryUsageRecord = {
+  id: string
+  storyId: string
+  applicationId?: string
+  interviewId?: string
+  usedAtDate?: string
+  confidence: "low" | "medium" | "high"
+  notes?: string
+  createdAt: number
+  updatedAt: number
+}
+
 export type UserSettings = {
   displayName: string
   theme: "dark" | "light" | "system"
@@ -492,6 +708,11 @@ export type TrackerData = {
   weeklyGoals: WeeklyGoal[]
   winLogEntries: WinLogEntry[]
   qualityChecklistItems: QualityChecklistItem[]
+  targetCompanies: TargetCompanyRecord[]
+  referralOutreach: ReferralOutreachRecord[]
+  interviewPrepPlans: InterviewPrepPlanRecord[]
+  storyBankEntries: StoryBankEntryRecord[]
+  storyUsages: StoryUsageRecord[]
   settings: UserSettings
 }
 

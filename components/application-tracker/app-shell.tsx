@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { motion, useReducedMotion } from "motion/react"
 import {
   BarChart3,
+  BookOpenCheck,
   BriefcaseBusiness,
   CalendarClock,
   ChevronLeft,
@@ -14,6 +15,8 @@ import {
   LogOut,
   Menu,
   Settings,
+  Target,
+  Trophy,
   Users,
 } from "lucide-react"
 
@@ -40,8 +43,11 @@ import { useAppData } from "./use-app-data"
 
 const navItems = [
   { href: "/app", label: "Today", icon: Gauge },
+  { href: "/app/targets", label: "Targets", icon: Target },
   { href: "/app/applications", label: "Pipeline", icon: BriefcaseBusiness },
   { href: "/app/interviews", label: "Interviews", icon: CalendarClock },
+  { href: "/app/prep", label: "Prep", icon: BookOpenCheck },
+  { href: "/app/stories", label: "Stories", icon: Trophy },
   { href: "/app/people", label: "People", icon: Users },
   { href: "/app/documents", label: "Documents", icon: FileText },
   { href: "/app/insights", label: "Insights", icon: BarChart3 },

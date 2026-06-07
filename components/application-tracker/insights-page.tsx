@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { BarChart3, Target } from "lucide-react"
+import { AlertTriangle, BarChart3, Target } from "lucide-react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalyticsView } from "./analytics-page"
+import { FailurePatternsPanel } from "./failure-patterns-panel"
 import { GoalsView } from "./goals-page"
 import { PageHeader } from "./common"
 
@@ -16,7 +17,7 @@ export function InsightsPage() {
       <PageHeader
         eyebrow="Insights"
         title="What's working in your search"
-        description="Conversion, timing, and segments on one side; weekly cadence, goals, and wins on the other."
+        description="Conversion, timing, failure patterns, weekly cadence, goals, and wins in one place."
       />
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -29,6 +30,10 @@ export function InsightsPage() {
             <Target className="size-3.5" />
             Goals &amp; wins
           </TabsTrigger>
+          <TabsTrigger value="failures" className="gap-1.5">
+            <AlertTriangle className="size-3.5" />
+            Failure patterns
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="analytics">
@@ -36,6 +41,9 @@ export function InsightsPage() {
         </TabsContent>
         <TabsContent value="goals">
           <GoalsView />
+        </TabsContent>
+        <TabsContent value="failures">
+          <FailurePatternsPanel />
         </TabsContent>
       </Tabs>
     </>

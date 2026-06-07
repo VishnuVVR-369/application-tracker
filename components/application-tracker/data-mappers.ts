@@ -7,9 +7,14 @@ import type {
   ApplicationRecord,
   ApplicationResumeLink,
   ApplicationStageHistory,
+  InterviewPrepPlanRecord,
   QualityChecklistItem,
+  ReferralOutreachRecord,
   ResumeRecord,
+  StoryBankEntryRecord,
+  StoryUsageRecord,
   TaskRecord,
+  TargetCompanyRecord,
   WeeklyGoal,
   WinLogEntry,
 } from "@/lib/application-model"
@@ -278,6 +283,121 @@ export function mapQualityItem(doc: Doc<"qualityChecklistItems">): QualityCheckl
     weight: doc.weight,
     sortOrder: doc.sortOrder,
     enabled: doc.enabled,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapTargetCompany(doc: Doc<"targetCompanies">): TargetCompanyRecord {
+  return {
+    id: doc._id,
+    companyName: doc.companyName,
+    companyKey: doc.companyKey,
+    website: doc.website,
+    domain: doc.domain,
+    tier: doc.tier,
+    status: doc.status,
+    targetRoles: doc.targetRoles,
+    targetLevel: doc.targetLevel,
+    locationPreference: doc.locationPreference,
+    workArrangement: doc.workArrangement,
+    priorityScore: doc.priorityScore,
+    roleFitScore: doc.roleFitScore,
+    referralGoal: doc.referralGoal,
+    applicationWindowStartDate: doc.applicationWindowStartDate,
+    applicationWindowEndDate: doc.applicationWindowEndDate,
+    researchNotes: doc.researchNotes,
+    hiringBarNotes: doc.hiringBarNotes,
+    interviewProcessNotes: doc.interviewProcessNotes,
+    compensationNotes: doc.compensationNotes,
+    notes: doc.notes,
+    archived: doc.archived,
+    archivedAt: doc.archivedAt,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapReferralOutreach(doc: Doc<"referralOutreach">): ReferralOutreachRecord {
+  return {
+    id: doc._id,
+    targetCompanyId: doc.targetCompanyId,
+    applicationId: doc.applicationId,
+    contactName: doc.contactName,
+    contactRole: doc.contactRole,
+    source: doc.source,
+    status: doc.status,
+    linkedinUrl: doc.linkedinUrl,
+    email: doc.email,
+    normalizedEmail: doc.normalizedEmail,
+    firstContactedDate: doc.firstContactedDate,
+    lastContactedDate: doc.lastContactedDate,
+    followUpDate: doc.followUpDate,
+    messageTemplate: doc.messageTemplate,
+    notes: doc.notes,
+    archived: doc.archived,
+    archivedAt: doc.archivedAt,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapInterviewPrepPlan(doc: Doc<"interviewPrepPlans">): InterviewPrepPlanRecord {
+  return {
+    id: doc._id,
+    applicationId: doc.applicationId,
+    targetCompanyId: doc.targetCompanyId,
+    title: doc.title,
+    status: doc.status,
+    focusAreas: doc.focusAreas,
+    codingDrillsTarget: doc.codingDrillsTarget,
+    codingDrillsDone: doc.codingDrillsDone,
+    systemDesignDrillsTarget: doc.systemDesignDrillsTarget,
+    systemDesignDrillsDone: doc.systemDesignDrillsDone,
+    behavioralStoriesTarget: doc.behavioralStoriesTarget,
+    behavioralStoriesReady: doc.behavioralStoriesReady,
+    mockInterviewsTarget: doc.mockInterviewsTarget,
+    mockInterviewsDone: doc.mockInterviewsDone,
+    companyResearchDone: doc.companyResearchDone,
+    resumeDeepDiveDone: doc.resumeDeepDiveDone,
+    weaknessTags: doc.weaknessTags,
+    nextAction: doc.nextAction,
+    notes: doc.notes,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapStory(doc: Doc<"storyBankEntries">): StoryBankEntryRecord {
+  return {
+    id: doc._id,
+    title: doc.title,
+    project: doc.project,
+    situation: doc.situation,
+    task: doc.task,
+    action: doc.action,
+    result: doc.result,
+    impactMetrics: doc.impactMetrics,
+    technologies: doc.technologies,
+    competencies: doc.competencies,
+    senioritySignal: doc.senioritySignal,
+    notes: doc.notes,
+    archived: doc.archived,
+    archivedAt: doc.archivedAt,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  }
+}
+
+export function mapStoryUsage(doc: Doc<"storyUsages">): StoryUsageRecord {
+  return {
+    id: doc._id,
+    storyId: doc.storyId,
+    applicationId: doc.applicationId,
+    interviewId: doc.interviewId,
+    usedAtDate: doc.usedAtDate,
+    confidence: doc.confidence,
+    notes: doc.notes,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   }
