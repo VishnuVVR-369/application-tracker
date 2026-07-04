@@ -56,7 +56,8 @@ import {
 import { cn } from "@/lib/utils"
 import { InterviewFormSheet } from "./interview-form-sheet"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
-import { EmptyState, LoadingPanels, PageHeader } from "./common"
+import { EmptyState, PageHeader } from "./common"
+import { PageSkeleton } from "./skeletons"
 import { mapApplication, mapInterview } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
@@ -81,7 +82,7 @@ export function InterviewsPage() {
   const [editing, setEditing] = React.useState<Doc<"applicationInterviews"> | null>(null)
   const [scheduling, setScheduling] = React.useState(false)
 
-  if (isLoading) return <LoadingPanels />
+  if (isLoading) return <PageSkeleton action columns="1fr" panels={2} />
   if (!data) {
     return <EmptyState title="Interviews unavailable" description="Sign in to load your interview schedule." />
   }

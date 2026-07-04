@@ -26,7 +26,8 @@ import { formatShortDate } from "@/lib/date-model"
 import { calculateGoalProgress, createDefaultWeeklyGoal, getWeekKey, WIN_TYPE_LABELS } from "@/lib/goals-model"
 import { cn } from "@/lib/utils"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
-import { EmptyState, LoadingPanels, PageHeader, Panel, ProgressBar } from "./common"
+import { EmptyState, PageHeader, Panel, ProgressBar } from "./common"
+import { GoalsSkeleton } from "./skeletons"
 import { mapApplication, mapGoal, mapTask, mapWin } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
@@ -66,7 +67,7 @@ export function GoalsView() {
   const [winApplicationId, setWinApplicationId] = React.useState("")
 
   if (isLoading) {
-    return <LoadingPanels />
+    return <GoalsSkeleton />
   }
 
   if (!data) {

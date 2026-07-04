@@ -25,7 +25,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { EmptyState, LoadingPanels, PageHeader, Panel } from "./common"
+import { EmptyState, PageHeader, Panel } from "./common"
+import { PageSkeleton } from "./skeletons"
 import { useAppData } from "./use-app-data"
 
 const THEMES = [
@@ -46,7 +47,7 @@ export function SettingsPage() {
   const [newWeight, setNewWeight] = React.useState("10")
 
   if (isLoading) {
-    return <LoadingPanels />
+    return <PageSkeleton columns="1fr 1fr" panels={2} />
   }
 
   if (!data) {

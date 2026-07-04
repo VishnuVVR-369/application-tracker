@@ -54,6 +54,14 @@ const NAV_DESTINATIONS = [
   { href: "/app/settings", label: "Settings", icon: Settings },
 ] as const
 
+function PaletteKey({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-line bg-surface-1 px-1 font-mono text-[10px] leading-none text-ink-500">
+      {children}
+    </kbd>
+  )
+}
+
 function matches(item: CommandItem, query: string) {
   if (!query) return true
   const haystack = `${item.label} ${item.sublabel ?? ""} ${item.keywords ?? ""}`.toLowerCase()
@@ -70,6 +78,16 @@ export function QuickActions({ variant = "full" }: { variant?: "full" | "compact
   const [query, setQuery] = React.useState("")
   const [activeIndex, setActiveIndex] = React.useState(0)
   const [activeSheet, setActiveSheet] = React.useState<SheetKind | null>(null)
+  const activeItemRef = React.useRef<HTMLButtonElement>(null)
+
+  // Reset the query/selection whenever the palette closes so it reopens fresh.
+  const onPaletteOpenChange = React.useCallback((open: boolean) => {
+    setPaletteOpen(open)
+    if (!open) {
+      setQuery("")
+      setActiveIndex(0)
+    }
+  }, [])
 
   const applications = React.useMemo(() => data?.applications ?? [], [data])
   const resumes = data?.resumes ?? []
@@ -134,6 +152,12 @@ export function QuickActions({ variant = "full" }: { variant?: "full" | "compact
   // Clamp in render instead of resetting via an effect (house rule: no
   // setState inside effects).
   const safeIndex = filtered.length === 0 ? 0 : Math.min(activeIndex, filtered.length - 1)
+
+  // Keep the highlighted row visible as the user arrows past the fold. This is
+  // a DOM side effect (not setState), so it's fine inside an effect.
+  React.useEffect(() => {
+    activeItemRef.current?.scrollIntoView({ block: "nearest" })
+  }, [safeIndex, query])
 
   function onPaletteKeyDown(event: React.KeyboardEvent) {
     if (event.key === "ArrowDown") {
@@ -206,7 +230,7 @@ export function QuickActions({ variant = "full" }: { variant?: "full" | "compact
       </div>
 
       {/* Command palette */}
-      <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+      <Dialog open={paletteOpen} onOpenChange={onPaletteOpenChange}>
         <DialogContent
           showCloseButton={false}
           onKeyDown={onPaletteKeyDown}
@@ -245,6 +269,7 @@ export function QuickActions({ variant = "full" }: { variant?: "full" | "compact
                     return (
                       <button
                         key={item.id}
+                        ref={active ? activeItemRef : undefined}
                         type="button"
                         onMouseMove={() => setActiveIndex(index)}
                         onClick={() => item.run()}
@@ -278,6 +303,23 @@ export function QuickActions({ variant = "full" }: { variant?: "full" | "compact
                 </div>
               ))
             )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-line/70 px-3.5 py-2 text-[11px] text-ink-500">
+            <span className="flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <PaletteKey>↑</PaletteKey>
+                <PaletteKey>↓</PaletteKey>
+                navigate
+              </span>
+              <span className="flex items-center gap-1">
+                <PaletteKey>↵</PaletteKey>
+                open
+              </span>
+            </span>
+            <span className="font-mono tabular">
+              {filtered.length} result{filtered.length === 1 ? "" : "s"}
+            </span>
           </div>
         </DialogContent>
       </Dialog>

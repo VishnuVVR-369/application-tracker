@@ -53,12 +53,12 @@ import { ApplicationFormSheet } from "./application-form-sheet"
 import {
   EmptyState,
   FilterSelect,
-  LoadingPanels,
   PageHeader,
   Panel,
   StageBadge,
   StageSelect,
 } from "./common"
+import { BoardSkeleton } from "./skeletons"
 import { mapApplication, mapInterview } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
@@ -187,7 +187,7 @@ export function ApplicationsPage() {
   const [now] = React.useState(() => Date.now())
 
   if (isLoading) {
-    return <LoadingPanels />
+    return <BoardSkeleton />
   }
 
   if (!data) {
@@ -495,8 +495,17 @@ export function ApplicationsPage() {
                         })}
                       </AnimatePresence>
                       {columnApplications.length === 0 && (
-                        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line/60 py-6 text-center text-xs text-ink-500">
-                          Drop here
+                        <div
+                          className={cn(
+                            "flex flex-1 items-center justify-center rounded-lg border border-dashed py-6 text-center text-xs transition-colors",
+                            isOver
+                              ? "border-brand/50 bg-brand-weak text-brand"
+                              : draggedId
+                                ? "border-line-strong text-ink-300"
+                                : "border-line/60 text-ink-500"
+                          )}
+                        >
+                          {draggedId ? "Drop here" : "No applications"}
                         </div>
                       )}
                     </div>

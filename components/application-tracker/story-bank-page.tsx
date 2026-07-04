@@ -15,7 +15,8 @@ import {
   type StoryCompetency,
 } from "@/lib/application-model"
 import { buildStoryBankModel } from "@/lib/story-bank-model"
-import { EmptyState, LoadingPanels, PageHeader, Panel, ProgressBar } from "./common"
+import { EmptyState, PageHeader, Panel, ProgressBar } from "./common"
+import { PageSkeleton } from "./skeletons"
 import { Field } from "./form-kit"
 import { mapStory, mapStoryUsage } from "./data-mappers"
 import { useAppData } from "./use-app-data"
@@ -36,7 +37,7 @@ export function StoryBankPage() {
     competencies: ["ownership", "technical_depth"] as StoryCompetency[],
   })
 
-  if (isLoading) return <LoadingPanels />
+  if (isLoading) return <PageSkeleton stats={4} columns="1.35fr 0.95fr" panels={2} />
   if (!data) {
     return <EmptyState title="Story bank unavailable" description="Sign in to load your stories." />
   }

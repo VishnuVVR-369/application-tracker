@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   APPLICATION_STAGES,
   STAGE_LABELS,
@@ -155,15 +154,6 @@ export function EmptyState({
   )
 }
 
-export function LoadingPanels({ count = 6 }: { count?: number }) {
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {Array.from({ length: count }).map((_, index) => (
-        <Skeleton key={index} className="h-36 rounded-xl" />
-      ))}
-    </div>
-  )
-}
 
 export function ProgressBar({
   value,

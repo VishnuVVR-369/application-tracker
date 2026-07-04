@@ -20,7 +20,8 @@ import {
 } from "@/lib/application-model"
 import { buildPrepModel } from "@/lib/prep-model"
 import { cn } from "@/lib/utils"
-import { EmptyState, LoadingPanels, PageHeader, Panel, ProgressBar } from "./common"
+import { EmptyState, PageHeader, Panel, ProgressBar } from "./common"
+import { PageSkeleton } from "./skeletons"
 import { Field, NativeSelect } from "./form-kit"
 import { mapApplication, mapInterviewPrepPlan, mapTargetCompany } from "./data-mappers"
 import { useAppData } from "./use-app-data"
@@ -43,7 +44,7 @@ export function PrepPage() {
     nextAction: "",
   })
 
-  if (isLoading) return <LoadingPanels />
+  if (isLoading) return <PageSkeleton stats={4} columns="1.35fr 0.9fr" panels={2} />
   if (!data) {
     return <EmptyState title="Prep unavailable" description="Sign in to load interview prep." />
   }

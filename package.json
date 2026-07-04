@@ -12,12 +12,12 @@
     "seed:test-data": "node scripts/seed-test-data.mjs"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.12.2",
-    "better-auth": "^1.6.9",
+    "@convex-dev/better-auth": "^0.12.5",
+    "better-auth": "^1.6.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.39.1",
-    "kysely": "0.28.14",
+    "convex": "^1.42.1",
+    "kysely": "0.28.17",
     "lucide-react": "^1.17.0",
     "motion": "^12.40.0",
     "next": "16.2.6",
@@ -44,5 +44,11 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "hono": "4.12.25",
+      "postcss": "8.5.10"
+    }
   }
 }

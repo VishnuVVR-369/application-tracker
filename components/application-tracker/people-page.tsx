@@ -37,7 +37,8 @@ import {
 import { cn } from "@/lib/utils"
 import { ContactFormSheet } from "./contact-form-sheet"
 import { Stagger, StaggerItem } from "./atmosphere"
-import { EmptyState, LoadingPanels, PageHeader } from "./common"
+import { EmptyState, PageHeader } from "./common"
+import { PeopleSkeleton } from "./skeletons"
 import { mapApplication, mapContact } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
@@ -58,7 +59,7 @@ export function PeoplePage() {
   const [adding, setAdding] = React.useState(false)
   const [editing, setEditing] = React.useState<Doc<"applicationContacts"> | null>(null)
 
-  if (isLoading) return <LoadingPanels />
+  if (isLoading) return <PeopleSkeleton />
   if (!data) {
     return <EmptyState title="People unavailable" description="Sign in to load your contacts." />
   }

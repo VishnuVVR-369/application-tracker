@@ -27,7 +27,8 @@ import {
 import { buildReferralModel } from "@/lib/referral-model"
 import { buildTargetCompanyModel } from "@/lib/target-company-model"
 import { cn } from "@/lib/utils"
-import { EmptyState, LoadingPanels, PageHeader, Panel, ProgressBar } from "./common"
+import { EmptyState, PageHeader, Panel, ProgressBar } from "./common"
+import { PageSkeleton } from "./skeletons"
 import { Field, NativeSelect } from "./form-kit"
 import { mapApplication, mapReferralOutreach, mapTargetCompany } from "./data-mappers"
 import { useAppData } from "./use-app-data"
@@ -58,7 +59,7 @@ export function TargetCompaniesPage() {
     notes: "",
   })
 
-  if (isLoading) return <LoadingPanels />
+  if (isLoading) return <PageSkeleton action stats={4} columns="1.4fr 0.9fr" panels={2} />
   if (!data) {
     return <EmptyState title="Targets unavailable" description="Sign in to load target companies." />
   }

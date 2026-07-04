@@ -266,9 +266,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
           <motion.div
             key={pathname}
-            initial={{ opacity: 0, y: 8 }}
+            initial={reduce ? false : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
+            transition={{ duration: 0.24, ease: EASE }}
           >
             {children}
           </motion.div>

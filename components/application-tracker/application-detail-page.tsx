@@ -84,7 +84,8 @@ import { InterviewFormSheet } from "./interview-form-sheet"
 import { OfferSheet, OutcomeSheet } from "./offer-outcome-sheets"
 import { TaskFormSheet } from "./task-form-sheet"
 import { FadeIn } from "./atmosphere"
-import { EmptyState, LoadingPanels, Panel, ProgressBar, StageBadge, StageSelect } from "./common"
+import { EmptyState, Panel, ProgressBar, StageBadge, StageSelect } from "./common"
+import { DetailSkeleton } from "./skeletons"
 import {
   mapActivity,
   mapApplication,
@@ -139,7 +140,7 @@ export function ApplicationDetailPage({ id }: { id: string }) {
   const [editingInterview, setEditingInterview] = React.useState<Doc<"applicationInterviews"> | null>(null)
   const [editingContact, setEditingContact] = React.useState<Doc<"applicationContacts"> | null>(null)
 
-  if (isLoading) return <LoadingPanels />
+  if (isLoading) return <DetailSkeleton />
   if (!data) {
     return <EmptyState title="Application unavailable" description="Sign in to load this application." />
   }

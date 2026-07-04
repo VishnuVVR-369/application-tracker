@@ -1,11 +1,11 @@
 import { Suspense } from "react"
 
 import { InterviewsPage } from "@/components/application-tracker/interviews-page"
-import { LoadingPanels } from "@/components/application-tracker/common"
+import { PageSkeleton } from "@/components/application-tracker/skeletons"
 
 export default function Page() {
   return (
-    <Suspense fallback={<LoadingPanels />}>
+    <Suspense fallback={<PageSkeleton action columns="1fr" panels={2} />}>
       <InterviewsPage />
     </Suspense>
   )

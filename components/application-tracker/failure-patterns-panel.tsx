@@ -4,7 +4,8 @@ import { AlertTriangle, BarChart3, Route } from "lucide-react"
 
 import { buildFailureAnalyticsModel } from "@/lib/failure-analytics-model"
 import { cn } from "@/lib/utils"
-import { EmptyState, LoadingPanels, Panel } from "./common"
+import { EmptyState, Panel } from "./common"
+import { SkeletonPanel } from "./skeletons"
 import {
   mapApplication,
   mapInterview,
@@ -16,7 +17,13 @@ import { useAppData } from "./use-app-data"
 
 export function FailurePatternsPanel() {
   const { data, isLoading } = useAppData()
-  if (isLoading) return <LoadingPanels />
+  if (isLoading)
+    return (
+      <div className="grid gap-4">
+        <SkeletonPanel rows={4} />
+        <SkeletonPanel rows={3} />
+      </div>
+    )
   if (!data) {
     return <EmptyState title="Failure analytics unavailable" description="Sign in to load failure patterns." />
   }

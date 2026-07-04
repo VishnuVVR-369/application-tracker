@@ -42,7 +42,8 @@ import { buildTodayModel } from "@/lib/today-model"
 import { cn } from "@/lib/utils"
 import { RaceStrip } from "./race-strip"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
-import { EmptyState, LoadingPanels, ProgressBar } from "./common"
+import { EmptyState, ProgressBar } from "./common"
+import { TodaySkeleton } from "./skeletons"
 import {
   mapActivity,
   mapApplication,
@@ -100,7 +101,7 @@ export function TodayPage() {
   const logFollowUp = useMutation(api.ghosting.logFollowUp)
   const snoozeGhostNudge = useMutation(api.ghosting.snoozeGhostNudge)
 
-  if (isLoading) return <LoadingPanels />
+  if (isLoading) return <TodaySkeleton />
   if (!data) {
     return (
       <EmptyState

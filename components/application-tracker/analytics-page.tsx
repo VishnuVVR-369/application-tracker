@@ -18,7 +18,8 @@ import { buildAnalyticsModel } from "@/lib/analytics-model"
 import { buildEffortRoiModel, ROI_MIN_SAMPLE, type EffortRoiModel, type RoiRow } from "@/lib/effort-roi-model"
 import { cn } from "@/lib/utils"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
-import { EmptyState, LoadingPanels, PageHeader, Panel } from "./common"
+import { EmptyState, PageHeader, Panel } from "./common"
+import { AnalyticsSkeleton } from "./skeletons"
 import { mapActivity, mapApplication, mapResume, mapStageHistory } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
@@ -83,7 +84,7 @@ export function AnalyticsView() {
   const [includeClosed, setIncludeClosed] = React.useState(false)
 
   if (isLoading) {
-    return <LoadingPanels />
+    return <AnalyticsSkeleton />
   }
 
   if (!data) {
