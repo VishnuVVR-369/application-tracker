@@ -109,7 +109,7 @@ async function getQualitySnapshot(ctx: MutationCtx, userId: Id<"users">) {
   }))
 }
 
-async function addActivity(
+export async function addActivity(
   ctx: MutationCtx,
   args: {
     userId: Id<"users">
@@ -213,7 +213,8 @@ async function insertStageHistory(
   stage: Doc<"applications">["stage"],
   at: number,
   fromStage?: Doc<"applications">["stage"],
-  activityEventId?: Id<"activityEvents">
+  activityEventId?: Id<"activityEvents">,
+  source: Doc<"applicationStageHistory">["source"] = "user"
 ) {
   return await ctx.db.insert("applicationStageHistory", {
     userId,
@@ -221,19 +222,20 @@ async function insertStageHistory(
     stage,
     enteredAt: at,
     enteredFromStage: fromStage,
-    source: "user",
+    source,
     activityEventId,
     createdAt: at,
     updatedAt: at,
   })
 }
 
-async function transitionStage(
+export async function transitionStage(
   ctx: MutationCtx,
   userId: Id<"users">,
   application: Doc<"applications">,
   nextStage: Doc<"applications">["stage"],
-  at: number
+  at: number,
+  source: Doc<"applicationStageHistory">["source"] = "user"
 ) {
   if (application.stage === nextStage) {
     return undefined
@@ -267,7 +269,16 @@ async function transitionStage(
     dedupeKey: `${application._id}:stage:${application.stage}:${nextStage}:${at}`,
   })
 
-  await insertStageHistory(ctx, userId, application._id, nextStage, at, application.stage, eventId)
+  await insertStageHistory(
+    ctx,
+    userId,
+    application._id,
+    nextStage,
+    at,
+    application.stage,
+    eventId,
+    source
+  )
   return eventId
 }
 

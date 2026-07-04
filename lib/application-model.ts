@@ -185,6 +185,18 @@ export const OFFER_DECISION_LABELS: Record<OfferDecision, string> = {
   expired: "Expired",
 }
 
+export type MatchAnalysis = {
+  score: number
+  summary: string
+  matchedKeywords: string[]
+  missingKeywords: string[]
+  suggestions: string[]
+  model: string
+  analyzedAt: number
+  resumeId: string
+  resumeLabel: string
+}
+
 export type QualityCheckSnapshot = {
   key: string
   itemId?: string
@@ -244,6 +256,8 @@ export type ApplicationRecord = {
   rejectionFeedback?: string
   rejectionLessons?: string
   reapplyAfterDate?: string
+  ghostNudgeSnoozedUntilDate?: string
+  matchAnalysis?: MatchAnalysis
   archived: boolean
   archivedAt?: number
   createdAt: number

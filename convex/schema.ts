@@ -268,6 +268,18 @@ const resumeSnapshot = v.object({
   sizeBytes: v.number(),
 })
 
+export const matchAnalysisSnapshot = v.object({
+  score: v.number(),
+  summary: v.string(),
+  matchedKeywords: v.array(v.string()),
+  missingKeywords: v.array(v.string()),
+  suggestions: v.array(v.string()),
+  model: v.string(),
+  analyzedAt: v.number(),
+  resumeId: v.id("resumes"),
+  resumeLabel: v.string(),
+})
+
 export default defineSchema({
   users: defineTable({
     authSubject: v.string(),
@@ -340,6 +352,8 @@ export default defineSchema({
     rejectionFeedback: v.optional(v.string()),
     rejectionLessons: v.optional(v.string()),
     reapplyAfterDate: v.optional(v.string()),
+    ghostNudgeSnoozedUntilDate: v.optional(v.string()),
+    matchAnalysis: v.optional(matchAnalysisSnapshot),
     archived: v.boolean(),
     archivedAt: v.optional(v.number()),
     createdAt: v.number(),

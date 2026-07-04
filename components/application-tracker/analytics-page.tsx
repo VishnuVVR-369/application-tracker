@@ -12,9 +12,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { Activity, Filter, GitBranch, PieChart, Timer } from "lucide-react"
+import { Activity, Filter, GitBranch, PieChart, Timer, Zap } from "lucide-react"
 
 import { buildAnalyticsModel } from "@/lib/analytics-model"
+import { buildEffortRoiModel, ROI_MIN_SAMPLE, type EffortRoiModel, type RoiRow } from "@/lib/effort-roi-model"
 import { cn } from "@/lib/utils"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
 import { EmptyState, LoadingPanels, PageHeader, Panel } from "./common"
@@ -89,13 +90,16 @@ export function AnalyticsView() {
     return <EmptyState title="Analytics unavailable" description="Sign in to compute analytics from Convex records." />
   }
 
+  const applications = data.applications.map(mapApplication)
+  const stageHistory = data.applicationStageHistory.map(mapStageHistory)
   const analytics = buildAnalyticsModel({
-    applications: data.applications.map(mapApplication),
+    applications,
     activityEvents: data.activityEvents.map(mapActivity),
-    stageHistory: data.applicationStageHistory.map(mapStageHistory),
+    stageHistory,
     resumes: data.resumes.map(mapResume),
     filters: { includeArchived, includeClosed },
   })
+  const roi = buildEffortRoiModel({ applications, stageHistory })
   const breakdownRows = [
     ...analytics.breakdowns.source.slice(0, 5),
     ...analytics.breakdowns.referral.slice(0, 5),
@@ -107,6 +111,8 @@ export function AnalyticsView() {
 
   return (
     <>
+      {roi.total > 0 && <EffortRoiHeadline roi={roi} />}
+
       <div className="glass mb-4 flex flex-wrap items-center gap-3 rounded-xl p-3">
         <span className="micro-label flex items-center gap-1.5">
           <Filter className="size-3.5" />
@@ -206,6 +212,112 @@ export function AnalyticsView() {
         </StaggerItem>
       </Stagger>
     </>
+  )
+}
+
+/* ── Effort ROI headline ───────────────────────────────────────────────── */
+
+function EffortRoiHeadline({ roi }: { roi: EffortRoiModel }) {
+  return (
+    <div className="gradient-ring glass mb-4 rounded-2xl p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="micro-label flex items-center gap-1.5">
+            <Zap className="size-3.5 text-brand" />
+            Effort ROI · {roi.total} applied
+          </p>
+          <h2 className="mt-1.5 text-lg font-semibold tracking-tight">
+            {roi.takeaway ?? "Where your effort actually converts"}
+          </h2>
+          {!roi.takeaway && (
+            <p className="mt-1 text-sm text-ink-300">
+              Rates firm up once a group reaches {ROI_MIN_SAMPLE}+ applications. Ghosted and
+              silent closes count as no response.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {roi.byType.map((row) => (
+          <RoiTypeTile key={row.key} row={row} />
+        ))}
+      </div>
+
+      {roi.bySource.length > 0 && (
+        <div className="mt-5 border-t border-line/70 pt-4">
+          <p className="micro-label mb-3">By source</p>
+          <div className="grid gap-2.5">
+            {roi.bySource.map((row) => (
+              <RoiSourceRow key={row.key} row={row} />
+            ))}
+          </div>
+          <p className="mt-3 flex items-center gap-4 text-[11px] text-ink-500">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-brand" /> Response rate
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-status-info" /> Interview rate
+            </span>
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RoiTypeTile({ row }: { row: RoiRow }) {
+  const muted = row.total === 0
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-line bg-surface-1/60 p-3.5",
+        muted && "opacity-60"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-medium text-ink-300">{row.label}</p>
+        {row.lowSample && (
+          <span className="shrink-0 rounded border border-status-warn/30 bg-status-warn/10 px-1.5 text-[10px] text-status-warn">
+            low sample
+          </span>
+        )}
+      </div>
+      <p className="mt-2 font-mono text-2xl font-semibold tabular">
+        {muted ? <span className="text-ink-500">—</span> : <>{row.responseRate}%</>}
+        {!muted && <span className="ml-1 text-xs font-normal text-ink-500">response</span>}
+      </p>
+      <p className="mt-1 font-mono text-xs tabular text-ink-500">
+        {muted ? "no applications yet" : `${row.interviewRate}% interview · n=${row.total}`}
+      </p>
+    </div>
+  )
+}
+
+function RoiSourceRow({ row }: { row: RoiRow }) {
+  return (
+    <div className="grid grid-cols-[7.5rem_1fr_auto] items-center gap-3">
+      <span className="truncate text-sm text-ink-300">{row.label}</span>
+      <div className="grid gap-1">
+        <RoiBar value={row.responseRate} className="bg-brand" />
+        <RoiBar value={row.interviewRate} className="bg-status-info" />
+      </div>
+      <span className="w-24 text-right font-mono text-xs tabular text-ink-500">
+        {row.responseRate}% · {row.interviewRate}%
+        <span className="ml-1 text-ink-500/70">n={row.total}</span>
+      </span>
+    </div>
+  )
+}
+
+function RoiBar({ value, className }: { value: number; className: string }) {
+  return (
+    <span className="h-1.5 overflow-hidden rounded-full bg-surface-3 ring-1 ring-inset ring-line">
+      <span
+        className={cn("block h-full rounded-full transition-[width] duration-500 ease-out", className)}
+        style={{ width: `${Math.min(100, Math.max(value, value > 0 ? 3 : 0))}%` }}
+      />
+    </span>
   )
 }
 

@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useMutation } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import {
   Activity,
   Archive,
@@ -20,10 +20,12 @@ import {
   FileText,
   Link2,
   ListChecks,
+  Loader2,
   MapPin,
   MoreHorizontal,
   Pencil,
   Plus,
+  Sparkles,
   Star,
   Trash2,
   UserPlus,
@@ -50,6 +52,7 @@ import {
   STAGE_LABELS,
   WORK_ARRANGEMENT_LABELS,
   formatApplicationSalary,
+  type ApplicationRecord,
   type ApplicationStage,
 } from "@/lib/application-model"
 import { CONTACT_RELATIONSHIP_LABELS, contactInitials, type ContactRelationship } from "@/lib/contact-model"
@@ -395,6 +398,8 @@ export function ApplicationDetailPage({ id }: { id: string }) {
                   ))}
                 </div>
               </Panel>
+
+              <MatchPanel application={application} applicationId={applicationId} />
 
               <Panel title="Linked resume" icon={FileText}>
                 {linkedResume ? (
@@ -776,6 +781,140 @@ export function ApplicationDetailPage({ id }: { id: string }) {
 }
 
 /* ── Building blocks ───────────────────────────────────────────────────── */
+
+function MatchPanel({
+  application,
+  applicationId,
+}: {
+  application: ApplicationRecord
+  applicationId: Id<"applications">
+}) {
+  const analyzeMatch = useAction(api.matchAnalysis.analyze)
+  const [analyzing, setAnalyzing] = React.useState(false)
+
+  const analysis = application.matchAnalysis
+  const hasJd = Boolean(application.jobDescriptionSnapshot?.trim())
+  const hasResume = Boolean(application.currentResumeId)
+  const canAnalyze = hasJd && hasResume
+  const resumeChanged =
+    analysis !== undefined &&
+    application.currentResumeId !== undefined &&
+    analysis.resumeId !== application.currentResumeId
+
+  async function runAnalysis() {
+    setAnalyzing(true)
+    try {
+      await analyzeMatch({ applicationId })
+      toast.success("Match analysis updated")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Analysis failed. Try again.")
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  return (
+    <Panel
+      title="Resume ↔ JD match"
+      icon={Sparkles}
+      action={
+        <Button
+          size="xs"
+          variant="secondary"
+          disabled={!canAnalyze || analyzing}
+          onClick={() => void runAnalysis()}
+        >
+          {analyzing ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="size-3.5" />
+          )}
+          {analyzing ? "Analyzing…" : analysis ? "Re-run" : "Analyze"}
+        </Button>
+      }
+    >
+      {!analysis ? (
+        <p className="text-sm leading-relaxed text-ink-300">
+          {canAnalyze
+            ? "Run an AI comparison of the linked resume against the saved job description: fit score, missing keywords, and tailoring suggestions."
+            : [
+                "To analyze, this application needs",
+                [!hasJd && "a job description snapshot", !hasResume && "a linked resume"]
+                  .filter(Boolean)
+                  .join(" and "),
+                "— add via Edit.",
+              ].join(" ")}
+        </p>
+      ) : (
+        <div className="grid gap-3.5">
+          <div className="flex items-center gap-4">
+            <MatchRing score={analysis.score} />
+            <p className="text-sm leading-relaxed text-ink-300">{analysis.summary}</p>
+          </div>
+
+          {resumeChanged && (
+            <p className="rounded-lg border border-status-warn/30 bg-status-warn/[0.08] px-3 py-2 text-xs text-status-warn">
+              The linked resume changed since this analysis — re-run for fresh results.
+            </p>
+          )}
+
+          {analysis.missingKeywords.length > 0 && (
+            <div>
+              <p className="micro-label mb-1.5">Missing from the resume</p>
+              <div className="flex flex-wrap gap-1.5">
+                {analysis.missingKeywords.map((keyword) => (
+                  <Badge key={keyword} variant="warn">
+                    {keyword}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {analysis.suggestions.length > 0 && (
+            <div>
+              <p className="micro-label mb-1.5">Tailoring suggestions</p>
+              <ol className="grid list-decimal gap-1.5 pl-4 text-sm leading-relaxed text-ink-300 marker:font-mono marker:text-xs marker:text-ink-500">
+                {analysis.suggestions.map((suggestion) => (
+                  <li key={suggestion}>{suggestion}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          <p className="border-t border-line/70 pt-2.5 text-[11px] text-ink-500">
+            {analysis.matchedKeywords.length} keywords matched · vs “{analysis.resumeLabel}” ·{" "}
+            {analysis.model} · {formatShortDate(analysis.analyzedAt)}
+          </p>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+function MatchRing({ score }: { score: number }) {
+  const tone =
+    score >= 70 ? "var(--status-up)" : score >= 40 ? "var(--status-warn)" : "var(--status-down)"
+  return (
+    <div className="relative flex size-20 shrink-0 items-center justify-center">
+      <svg viewBox="0 0 36 36" className="size-20 -rotate-90">
+        <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" strokeWidth="3" />
+        <circle
+          cx="18"
+          cy="18"
+          r="15.5"
+          fill="none"
+          stroke={tone}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={`${(score / 100) * 97.4} 97.4`}
+          style={{ filter: `drop-shadow(0 0 4px color-mix(in oklch, ${tone} 60%, transparent))` }}
+        />
+      </svg>
+      <span className="absolute font-mono text-lg font-semibold tabular">{score}</span>
+    </div>
+  )
+}
 
 function SectionToolbar({ title, action }: { title: string; action: React.ReactNode }) {
   return (

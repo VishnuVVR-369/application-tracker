@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useMutation } from "convex/react"
 import {
   Activity,
   AlarmClock,
@@ -12,15 +13,21 @@ import {
   Clock3,
   FileWarning,
   Flame,
+  Ghost,
   MessageSquareWarning,
   Sparkles,
   UserPlus,
   Video,
 } from "lucide-react"
+import { toast } from "sonner"
 
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { APPLICATION_STAGES, STAGE_LABELS, type ApplicationStage } from "@/lib/application-model"
 import { dateValueToDate, formatShortDate } from "@/lib/date-model"
+import { buildGhostingModel } from "@/lib/ghosting-model"
 import { calculateGoalProgress, createDefaultWeeklyGoal, getWeekKey } from "@/lib/goals-model"
 import {
   INTERVIEW_FORMAT_LABELS,
@@ -30,8 +37,10 @@ import {
   type InterviewFormat,
 } from "@/lib/interview-model"
 import { formatOfferBase } from "@/lib/offer-model"
+import { buildRaceModel } from "@/lib/race-model"
 import { buildTodayModel } from "@/lib/today-model"
 import { cn } from "@/lib/utils"
+import { RaceStrip } from "./race-strip"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
 import { EmptyState, LoadingPanels, ProgressBar } from "./common"
 import {
@@ -87,6 +96,9 @@ function greeting() {
 export function TodayPage() {
   const { data, isLoading } = useAppData()
   const [now] = React.useState(() => Date.now())
+  const updateApplication = useMutation(api.applications.update)
+  const logFollowUp = useMutation(api.ghosting.logFollowUp)
+  const snoozeGhostNudge = useMutation(api.ghosting.snoozeGhostNudge)
 
   if (isLoading) return <LoadingPanels />
   if (!data) {
@@ -102,6 +114,13 @@ export function TodayPage() {
 
   const applications = data.applications.map(mapApplication)
   const tasks = data.tasks.map(mapTask)
+  const ghosting = buildGhostingModel({ applications, now: new Date(now) })
+  const race = buildRaceModel({
+    applications,
+    interviews: data.applicationInterviews.map(mapInterview),
+    offers: data.applicationOffers.map(mapOffer),
+    now: new Date(now),
+  })
   const model = buildTodayModel({
     applications,
     tasks,
@@ -157,6 +176,13 @@ export function TodayPage() {
           </p>
         </div>
       </StaggerItem>
+
+      {/* Race view — only when something is on the clock */}
+      {race.lanes.length > 0 && (
+        <StaggerItem>
+          <RaceStrip model={race} />
+        </StaggerItem>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
         {/* ── Triage stack ─────────────────────────────────────────────── */}
@@ -272,6 +298,88 @@ export function TodayPage() {
               <LaneEmpty icon={Clock3} text="Nothing due in the next seven days." />
             )}
           </Lane>
+
+          {/* Presumed ghosted */}
+          {ghosting.nudges.length > 0 && (
+            <Lane icon={Ghost} title="Presumed ghosted" accent="status-down" count={ghosting.nudges.length}>
+              <div className="grid gap-2">
+                {ghosting.nudges.slice(0, 5).map(({ application, daysSilent, level, daysUntilAutoClose }) => (
+                  <div
+                    key={application.id}
+                    className={cn(
+                      "flex flex-wrap items-center gap-3 rounded-xl border p-3",
+                      level === "strong"
+                        ? "border-status-down/30 bg-status-down/[0.05]"
+                        : "border-line bg-surface-1/60"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/app/applications/${application.id}`}
+                        className="truncate text-sm font-medium transition-colors hover:text-brand"
+                      >
+                        {application.companyName}
+                        <span className="text-ink-500"> · {application.roleTitle}</span>
+                      </Link>
+                      <p className="mt-0.5 text-xs text-ink-500">
+                        {daysSilent}d of silence
+                        {level === "strong" && ` · auto-closes in ${daysUntilAutoClose}d`}
+                      </p>
+                    </div>
+                    <Badge variant={level === "strong" ? "danger" : "warn"} className="shrink-0 font-mono tabular">
+                      {daysSilent}d
+                    </Badge>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() =>
+                          void logFollowUp({ id: application.id as Id<"applications"> }).then(() =>
+                            toast.success("Follow-up logged — silence clock reset")
+                          )
+                        }
+                      >
+                        Followed up
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() =>
+                          void snoozeGhostNudge({ id: application.id as Id<"applications"> }).then(() =>
+                            toast.success("Snoozed for 7 days")
+                          )
+                        }
+                      >
+                        Snooze
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="text-status-down hover:text-status-down"
+                        onClick={() =>
+                          void updateApplication({
+                            id: application.id as Id<"applications">,
+                            stage: "closed",
+                            closedOutcome: "ghosted",
+                          }).then(() => toast.success(`${application.companyName} closed as ghosted`))
+                        }
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {ghosting.nudges.length > 5 && (
+                  <Link
+                    href="/app/applications?stage=applied"
+                    className="rounded-xl border border-dashed border-line/70 px-4 py-2.5 text-center text-xs text-ink-500 transition-colors hover:border-line-strong hover:text-ink-300"
+                  >
+                    +{ghosting.nudges.length - 5} more silent applications in the pipeline
+                  </Link>
+                )}
+              </div>
+            </Lane>
+          )}
 
           {/* Attention */}
           {model.attention.length > 0 && (

@@ -67,6 +67,8 @@ export function mapApplication(doc: Doc<"applications">): ApplicationRecord {
     rejectionFeedback: doc.rejectionFeedback,
     rejectionLessons: doc.rejectionLessons,
     reapplyAfterDate: doc.reapplyAfterDate,
+    ghostNudgeSnoozedUntilDate: doc.ghostNudgeSnoozedUntilDate,
+    matchAnalysis: doc.matchAnalysis,
     archived: doc.archived,
     archivedAt: doc.archivedAt,
     createdAt: doc.createdAt,
