@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Application Tracker
 
-## Getting Started
+A job-search command center, not just a spreadsheet replacement. Track applications through every stage, surface interviews and contacts that would otherwise go stale, and get AI-assisted signal on where to focus effort.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Applications** — pipeline from saved → applied → phone screen → interview → offer/closed, with source, referral status, and compensation tracking.
+- **Targets** — a ranked list of target companies (dream/strong/backup) with referral outreach tracking.
+- **Interviews & Prep** — schedule interviews and prep story-bank material (behavioral stories, talking points) ahead of them.
+- **People** — contacts and referral relationships tied back to applications and companies.
+- **Documents** — resume storage with AI-powered resume/job-description match analysis.
+- **Ghosting engine** — flags applications that have gone quiet and auto-closes/nudges follow-ups based on inactivity.
+- **Insights & Analytics** — funnel conversion, effort-to-outcome (ROI), and other stats across your search.
+- **Goals** — weekly/period targets for applications, outreach, and interviews.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tech stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [Next.js](https://nextjs.org) (App Router) + React + TypeScript
+- [Convex](https://www.convex.dev) for the backend, database, and real-time sync
+- [Better Auth](https://www.better-auth.com) for authentication (email + OAuth)
+- Tailwind CSS, Radix UI / shadcn, and Motion for the interface
+- OpenAI API (optional) for resume/job-description match analysis
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Getting started
 
-## Learn More
+1. Install dependencies:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   pnpm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. Copy `.env.example` to `.env.local` and fill in the values you need (Convex deployment URL, Better Auth secret, OAuth client credentials, and optionally an `OPENAI_API_KEY` for match analysis).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Start Convex in one terminal:
 
-## Deploy on Vercel
+   ```bash
+   npx convex dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. Start the Next.js dev server in another:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   pnpm dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000).
+
+## Scripts
+
+- `pnpm dev` — start the Next.js dev server
+- `pnpm build` / `pnpm start` — production build and start
+- `pnpm lint` — run ESLint
+- `pnpm typecheck` — run the TypeScript compiler with no emit
+- `pnpm test` — run the Vitest suite
+- `pnpm seed:test-data` — seed a local Convex deployment with sample data (see `.env.example` for `SEED_*` overrides)
