@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import {
   BarChart3,
+  BookOpenCheck,
   BriefcaseBusiness,
   CalendarClock,
   CornerDownLeft,
@@ -13,6 +14,8 @@ import {
   Plus,
   Search,
   Settings,
+  Target,
+  Trophy,
   UserPlus,
   Users,
 } from "lucide-react"
@@ -46,8 +49,11 @@ type CommandItem = {
 
 const NAV_DESTINATIONS = [
   { href: "/app", label: "Today", icon: Gauge },
+  { href: "/app/targets", label: "Targets", icon: Target },
   { href: "/app/applications", label: "Pipeline", icon: BriefcaseBusiness },
   { href: "/app/interviews", label: "Interviews", icon: CalendarClock },
+  { href: "/app/prep", label: "Prep", icon: BookOpenCheck },
+  { href: "/app/stories", label: "Stories", icon: Trophy },
   { href: "/app/people", label: "People", icon: Users },
   { href: "/app/documents", label: "Documents", icon: FileText },
   { href: "/app/insights", label: "Insights", icon: BarChart3 },
@@ -91,7 +97,7 @@ export function QuickActions({ variant = "full" }: { variant?: "full" | "compact
 
   const applications = React.useMemo(() => data?.applications ?? [], [data])
   const resumes = data?.resumes ?? []
-  const contacts = data?.applicationContacts ?? []
+  const contacts = React.useMemo(() => data?.applicationContacts ?? [], [data])
 
   // Global ⌘K / Ctrl+K opens the palette from anywhere.
   React.useEffect(() => {
@@ -144,8 +150,28 @@ export function QuickActions({ variant = "full" }: { variant?: "full" | "compact
           router.push(`/app/applications/${application._id}`)
         },
       }))
-    return [...create, ...nav, ...jump]
-  }, [applications, openSheet, router])
+    const people: CommandItem[] = contacts
+      .filter((contact) => !contact.archived)
+      .slice(0, 20)
+      .map((contact) => {
+        const company = applications.find(
+          (application) => application._id === contact.applicationId
+        )?.companyName
+        return {
+          id: `contact-${contact._id}`,
+          group: "Jump to person",
+          label: contact.name,
+          sublabel: contact.roleTitle ?? company,
+          icon: Users,
+          keywords: `${contact.name} ${contact.roleTitle ?? ""} ${company ?? ""}`,
+          run: () => {
+            setPaletteOpen(false)
+            router.push("/app/people")
+          },
+        }
+      })
+    return [...create, ...nav, ...jump, ...people]
+  }, [applications, contacts, openSheet, router])
 
   const filtered = React.useMemo(() => items.filter((item) => matches(item, query)), [items, query])
 

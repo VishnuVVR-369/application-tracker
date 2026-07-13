@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Pencil,
   Users,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -30,7 +31,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { CONTACT_RELATIONSHIP_LABELS, contactInitials, type ContactRelationship } from "@/lib/contact-model"
-import { formatShortDate } from "@/lib/date-model"
+import { addDays, formatShortDate } from "@/lib/date-model"
 import { getMondayWeekStart } from "@/lib/goals-model"
 import { startOfDay } from "@/lib/task-model"
 import {
@@ -81,6 +82,7 @@ export function InterviewsPage() {
   const [selectedId, setSelectedId] = React.useState<string | null>(() => searchParams.get("focus"))
   const [editing, setEditing] = React.useState<Doc<"applicationInterviews"> | null>(null)
   const [scheduling, setScheduling] = React.useState(false)
+  const [dayFilter, setDayFilter] = React.useState<number | null>(null)
 
   if (isLoading) return <PageSkeleton action columns="1fr" panels={2} />
   if (!data) {
@@ -95,6 +97,21 @@ export function InterviewsPage() {
   const feedbackCount = enriched.filter((item) => needsFeedback(item.interview)).length
 
   const selectedDoc = selectedId ? interviewDocs.find((doc) => doc._id === selectedId) ?? null : null
+
+  function filterByDay(items: EnrichedInterview[]) {
+    if (dayFilter === null) return items
+    const dayEnd = addDays(new Date(dayFilter), 1).getTime()
+    return items.filter((item) => item.start !== undefined && item.start >= dayFilter && item.start < dayEnd)
+  }
+
+  const dayGrouped = {
+    today: filterByDay(grouped.today),
+    week: filterByDay(grouped.week),
+    later: filterByDay(grouped.later),
+    past: filterByDay(grouped.past),
+  }
+  const dayFilteredTotal =
+    dayGrouped.today.length + dayGrouped.week.length + dayGrouped.later.length + dayGrouped.past.length
 
   return (
     <>
@@ -111,13 +128,28 @@ export function InterviewsPage() {
       />
 
       {/* Week strip + counts */}
-      <div className="mb-6 grid gap-3 sm:grid-cols-[1fr_auto]">
-        <WeekStrip enriched={enriched} />
+      <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <WeekStrip enriched={enriched} selectedDay={dayFilter} onSelectDay={setDayFilter} />
         <div className="flex gap-2">
           <Stat label="Upcoming" value={upcomingCount} tone="brand" />
           <Stat label="Need feedback" value={feedbackCount} tone="warn" />
         </div>
       </div>
+
+      {dayFilter !== null && (
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            type="button"
+            aria-label={`Clear ${formatInterviewDay(dayFilter)} day filter`}
+            onClick={() => setDayFilter(null)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-brand/40 bg-brand-weak px-2.5 py-1 text-xs text-brand transition-colors hover:border-brand/60"
+          >
+            {formatInterviewDay(dayFilter)}
+            <X className="size-3" />
+          </button>
+          <span className="font-mono text-xs tabular text-ink-500">{dayFilteredTotal} shown</span>
+        </div>
+      )}
 
       {enriched.length === 0 ? (
         <EmptyState
@@ -131,12 +163,24 @@ export function InterviewsPage() {
             </Button>
           }
         />
+      ) : dayFilter !== null && dayFilteredTotal === 0 ? (
+        <EmptyState
+          icon={CalendarClock}
+          title="No interviews that day"
+          description="Clear the day filter to see your full schedule."
+          action={
+            <Button variant="secondary" onClick={() => setDayFilter(null)}>
+              <X className="size-4" />
+              Clear day filter
+            </Button>
+          }
+        />
       ) : (
         <Stagger className="grid gap-6">
-          <AgendaGroup title="Today" tone="stage-interview" items={grouped.today} onSelect={setSelectedId} />
-          <AgendaGroup title="This week" tone="brand" items={grouped.week} onSelect={setSelectedId} />
-          <AgendaGroup title="Later" tone="ink-300" items={grouped.later} onSelect={setSelectedId} />
-          <AgendaGroup title="Past" tone="ink-500" items={grouped.past} onSelect={setSelectedId} past />
+          <AgendaGroup title="Today" tone="stage-interview" items={dayGrouped.today} onSelect={setSelectedId} />
+          <AgendaGroup title="This week" tone="brand" items={dayGrouped.week} onSelect={setSelectedId} />
+          <AgendaGroup title="Later" tone="ink-300" items={dayGrouped.later} onSelect={setSelectedId} />
+          <AgendaGroup title="Past" tone="ink-500" items={dayGrouped.past} onSelect={setSelectedId} past />
         </Stagger>
       )}
 
@@ -188,7 +232,15 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: "bra
   )
 }
 
-function WeekStrip({ enriched }: { enriched: EnrichedInterview[] }) {
+function WeekStrip({
+  enriched,
+  selectedDay,
+  onSelectDay,
+}: {
+  enriched: EnrichedInterview[]
+  selectedDay: number | null
+  onSelectDay: (day: number | null) => void
+}) {
   const monday = getMondayWeekStart()
   const todayKey = startOfDay(new Date()).getTime()
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -209,28 +261,69 @@ function WeekStrip({ enriched }: { enriched: EnrichedInterview[] }) {
   return (
     <div className="glass grid grid-cols-7 gap-1 rounded-xl p-2">
       {days.map((date) => {
+        const dayStart = startOfDay(date).getTime()
         const count = countOn(date)
-        const isToday = startOfDay(date).getTime() === todayKey
+        const isToday = dayStart === todayKey
+        const isSelected = selectedDay === dayStart
+        const label = new Intl.DateTimeFormat("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        }).format(date)
         return (
-          <div
+          <button
             key={date.toISOString()}
+            type="button"
+            aria-pressed={isSelected}
+            aria-label={`${label} · ${count} interview${count === 1 ? "" : "s"}`}
+            onClick={() => onSelectDay(isSelected ? null : dayStart)}
             className={cn(
-              "flex flex-col items-center rounded-lg py-1.5 transition-colors",
-              isToday ? "bg-brand-weak" : "hover:bg-surface-3/40"
+              "flex flex-col items-center rounded-lg py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              isSelected
+                ? "bg-brand text-primary-foreground"
+                : isToday
+                  ? "bg-brand-weak hover:bg-brand-weak/80"
+                  : "hover:bg-surface-3/40"
             )}
           >
-            <span className="text-[10px] uppercase tracking-wide text-ink-500">
+            <span
+              className={cn(
+                "text-[10px] uppercase tracking-wide",
+                isSelected ? "text-primary-foreground/80" : "text-ink-500"
+              )}
+            >
               {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date)}
             </span>
-            <span className={cn("mt-0.5 font-mono text-sm tabular", isToday ? "text-brand" : "text-ink-300")}>
+            <span
+              className={cn(
+                "mt-0.5 font-mono text-sm tabular",
+                isSelected ? "text-primary-foreground" : isToday ? "text-brand" : "text-ink-300"
+              )}
+            >
               {date.getDate()}
             </span>
             <span className="mt-1 flex h-3 items-center gap-0.5">
               {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
-                <span key={i} className="size-1.5 rounded-full bg-stage-interview" />
+                <span
+                  key={i}
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    isSelected ? "bg-primary-foreground" : "bg-stage-interview"
+                  )}
+                />
               ))}
+              {count > 3 && (
+                <span
+                  className={cn(
+                    "ml-0.5 font-mono text-[9px] leading-none tabular",
+                    isSelected ? "text-primary-foreground/90" : "text-ink-500"
+                  )}
+                >
+                  +{count - 3}
+                </span>
+              )}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>
@@ -473,6 +566,7 @@ function PrepDrawer({
                       <button
                         key={result}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => applyResult(result)}
                         className={cn(
                           "rounded-full border px-2.5 py-1 text-xs transition-colors",

@@ -114,28 +114,48 @@ export const updateCompany = mutation({
     tier: v.optional(targetCompanyTier),
     status: v.optional(targetCompanyStatus),
     archived: v.optional(v.boolean()),
-    ...optionalTargetFields,
+    website: v.optional(v.union(v.string(), v.null())),
+    targetRoles: v.optional(v.array(v.string())),
+    targetLevel: v.optional(v.union(v.string(), v.null())),
+    locationPreference: v.optional(v.union(v.string(), v.null())),
+    workArrangement: v.optional(v.union(workArrangement, v.null())),
+    priorityScore: v.optional(v.number()),
+    roleFitScore: v.optional(v.number()),
+    referralGoal: v.optional(v.number()),
+    applicationWindowStartDate: v.optional(v.union(v.string(), v.null())),
+    applicationWindowEndDate: v.optional(v.union(v.string(), v.null())),
+    researchNotes: v.optional(v.union(v.string(), v.null())),
+    hiringBarNotes: v.optional(v.union(v.string(), v.null())),
+    interviewProcessNotes: v.optional(v.union(v.string(), v.null())),
+    compensationNotes: v.optional(v.union(v.string(), v.null())),
+    notes: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
     await ensureTargetCompany(ctx, args.id, user._id)
     const now = Date.now()
-    const website = args.website === undefined ? undefined : canonicalizeUrl(args.website)
-
-    const patch = removeUndefined({
+    const patch: Record<string, unknown> = removeUndefined({
       companyName: args.companyName,
       companyKey: args.companyName === undefined ? undefined : normalizeKey(args.companyName),
-      website,
-      domain: args.website === undefined ? undefined : getDomain(website),
       tier: args.tier,
       status: args.status,
       targetRoles: args.targetRoles,
-      targetLevel: args.targetLevel,
-      locationPreference: args.locationPreference,
-      workArrangement: args.workArrangement,
       priorityScore: args.priorityScore,
       roleFitScore: args.roleFitScore,
       referralGoal: args.referralGoal,
+      archived: args.archived,
+      updatedAt: now,
+    })
+
+    if (args.website !== undefined) {
+      const website = args.website === null ? undefined : canonicalizeUrl(args.website)
+      patch.website = website
+      patch.domain = getDomain(website)
+    }
+    for (const [key, value] of Object.entries({
+      targetLevel: args.targetLevel,
+      locationPreference: args.locationPreference,
+      workArrangement: args.workArrangement,
       applicationWindowStartDate: args.applicationWindowStartDate,
       applicationWindowEndDate: args.applicationWindowEndDate,
       researchNotes: args.researchNotes,
@@ -143,12 +163,14 @@ export const updateCompany = mutation({
       interviewProcessNotes: args.interviewProcessNotes,
       compensationNotes: args.compensationNotes,
       notes: args.notes,
-      archived: args.archived,
-      archivedAt: args.archived === undefined ? undefined : args.archived ? now : undefined,
-      updatedAt: now,
-    }) as Partial<Doc<"targetCompanies">>
+    })) {
+      if (value !== undefined) patch[key] = value === null ? undefined : value
+    }
+    if (args.archived !== undefined) {
+      patch.archivedAt = args.archived ? now : undefined
+    }
 
-    await ctx.db.patch(args.id, patch)
+    await ctx.db.patch(args.id, patch as Partial<Doc<"targetCompanies">>)
   },
 })
 
@@ -208,7 +230,16 @@ export const updateOutreach = mutation({
     source: v.optional(referralOutreachSource),
     status: v.optional(referralOutreachStatus),
     archived: v.optional(v.boolean()),
-    ...optionalOutreachFields,
+    targetCompanyId: v.optional(v.union(v.id("targetCompanies"), v.null())),
+    applicationId: v.optional(v.union(v.id("applications"), v.null())),
+    contactRole: v.optional(v.union(v.string(), v.null())),
+    linkedinUrl: v.optional(v.union(v.string(), v.null())),
+    email: v.optional(v.union(v.string(), v.null())),
+    firstContactedDate: v.optional(v.union(v.string(), v.null())),
+    lastContactedDate: v.optional(v.union(v.string(), v.null())),
+    followUpDate: v.optional(v.union(v.string(), v.null())),
+    messageTemplate: v.optional(v.union(v.string(), v.null())),
+    notes: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
@@ -216,30 +247,42 @@ export const updateOutreach = mutation({
     if (!outreach || outreach.userId !== user._id) {
       throw new Error("Referral outreach not found")
     }
-    await ensureTargetCompany(ctx, args.targetCompanyId, user._id)
-    await ensureApplication(ctx, args.applicationId, user._id)
+    await ensureTargetCompany(ctx, args.targetCompanyId ?? undefined, user._id)
+    await ensureApplication(ctx, args.applicationId ?? undefined, user._id)
     const now = Date.now()
 
-    const patch = removeUndefined({
-      targetCompanyId: args.targetCompanyId,
-      applicationId: args.applicationId,
+    const patch: Record<string, unknown> = removeUndefined({
       contactName: args.contactName,
-      contactRole: args.contactRole,
       source: args.source,
       status: args.status,
-      linkedinUrl: args.linkedinUrl === undefined ? undefined : canonicalizeUrl(args.linkedinUrl),
-      email: args.email,
-      normalizedEmail: args.email === undefined ? undefined : normalizeEmail(args.email),
+      archived: args.archived,
+      updatedAt: now,
+    })
+
+    for (const [key, value] of Object.entries({
+      targetCompanyId: args.targetCompanyId,
+      applicationId: args.applicationId,
+      contactRole: args.contactRole,
       firstContactedDate: args.firstContactedDate,
       lastContactedDate: args.lastContactedDate,
       followUpDate: args.followUpDate,
       messageTemplate: args.messageTemplate,
       notes: args.notes,
-      archived: args.archived,
-      archivedAt: args.archived === undefined ? undefined : args.archived ? now : undefined,
-      updatedAt: now,
-    }) as Partial<Doc<"referralOutreach">>
+    })) {
+      if (value !== undefined) patch[key] = value === null ? undefined : value
+    }
+    if (args.linkedinUrl !== undefined) {
+      patch.linkedinUrl = args.linkedinUrl === null ? undefined : canonicalizeUrl(args.linkedinUrl)
+    }
+    if (args.email !== undefined) {
+      const email = args.email === null ? undefined : args.email
+      patch.email = email
+      patch.normalizedEmail = normalizeEmail(email)
+    }
+    if (args.archived !== undefined) {
+      patch.archivedAt = args.archived ? now : undefined
+    }
 
-    await ctx.db.patch(args.id, patch)
+    await ctx.db.patch(args.id, patch as Partial<Doc<"referralOutreach">>)
   },
 })

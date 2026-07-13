@@ -6,7 +6,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -28,6 +27,16 @@ const SERIES = [
   { key: "interviewRate", label: "Interview", color: "var(--status-info)" },
   { key: "offerRate", label: "Offer", color: "var(--stage-interview)" },
 ] as const
+
+const DIMENSIONS = [
+  { key: "source", label: "Source" },
+  { key: "referral", label: "Referral" },
+  { key: "workArrangement", label: "Arrangement" },
+  { key: "quality", label: "Quality" },
+  { key: "resume", label: "Resume" },
+] as const
+
+type DimensionKey = (typeof DIMENSIONS)[number]["key"]
 
 function FilterToggle({
   active,
@@ -65,6 +74,32 @@ function FilterToggle({
   )
 }
 
+function DimensionChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+        active
+          ? "border-brand/40 bg-brand-weak text-brand"
+          : "border-line bg-surface-1 text-ink-300 hover:border-line-strong hover:text-ink-100"
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
 export function AnalyticsPage() {
   return (
     <>
@@ -82,6 +117,7 @@ export function AnalyticsView() {
   const { data, isLoading } = useAppData()
   const [includeArchived, setIncludeArchived] = React.useState(false)
   const [includeClosed, setIncludeClosed] = React.useState(false)
+  const [dimension, setDimension] = React.useState<DimensionKey>("source")
 
   if (isLoading) {
     return <AnalyticsSkeleton />
@@ -93,22 +129,29 @@ export function AnalyticsView() {
 
   const applications = data.applications.map(mapApplication)
   const stageHistory = data.applicationStageHistory.map(mapStageHistory)
+  const activityEvents = data.activityEvents.map(mapActivity)
+  const resumes = data.resumes.map(mapResume)
   const analytics = buildAnalyticsModel({
     applications,
-    activityEvents: data.activityEvents.map(mapActivity),
+    activityEvents,
     stageHistory,
-    resumes: data.resumes.map(mapResume),
+    resumes,
     filters: { includeArchived, includeClosed },
   })
+  // Rejections are inherently closed applications — compute this panel from a
+  // separate model call that always includes them, independent of the global
+  // "include closed" toggle above (which still governs the funnel/timing/segments).
+  const rejectionAnalytics = buildAnalyticsModel({
+    applications,
+    activityEvents,
+    stageHistory,
+    resumes,
+    filters: { includeArchived, includeClosed: true },
+  })
   const roi = buildEffortRoiModel({ applications, stageHistory })
-  const breakdownRows = [
-    ...analytics.breakdowns.source.slice(0, 5),
-    ...analytics.breakdowns.referral.slice(0, 5),
-    ...analytics.breakdowns.workArrangement.slice(0, 5),
-    ...analytics.breakdowns.quality.slice(0, 5),
-    ...analytics.breakdowns.resume.slice(0, 5),
-  ]
+  const dimensionRows = analytics.breakdowns[dimension]
   const maxFunnel = Math.max(1, ...analytics.funnel.map((step) => Number(step.count) || 0))
+  const totalClosed = rejectionAnalytics.rejection.outcomes.reduce((sum, row) => sum + row.value, 0)
 
   return (
     <>
@@ -173,11 +216,18 @@ export function AnalyticsView() {
           </Panel>
         </StaggerItem>
 
-        {/* Segment breakdowns */}
+        {/* Segment breakdowns — one dimension at a time */}
         <StaggerItem className="xl:col-span-2">
           <Panel title="Segment breakdowns" icon={Activity}>
-            {breakdownRows.length ? (
-              <GroupedChart data={breakdownRows} xKey="key" />
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {DIMENSIONS.map((d) => (
+                <DimensionChip key={d.key} active={dimension === d.key} onClick={() => setDimension(d.key)}>
+                  {d.label}
+                </DimensionChip>
+              ))}
+            </div>
+            {dimensionRows.length ? (
+              <GroupedChart data={dimensionRows} />
             ) : (
               <EmptyState title="No segments yet" description="Add applied applications to see segment rates." />
             )}
@@ -185,25 +235,34 @@ export function AnalyticsView() {
         </StaggerItem>
 
         {/* Rejection */}
-        <StaggerItem>
-          <Panel title="Rejection analysis" icon={PieChart} className="h-full">
-            {!includeClosed ? (
-              <EmptyState
-                icon={Filter}
-                title="Closed applications are excluded"
-                description="Turn on include closed to populate outcome, rejection stage, and reason charts."
-              />
-            ) : analytics.rejection.outcomes.length ? (
-              <SingleChart data={analytics.rejection.outcomes} xKey="name" dataKey="value" color="var(--status-down)" />
+        <StaggerItem className="xl:col-span-2">
+          <Panel
+            title="Rejection analysis"
+            icon={PieChart}
+            action={
+              totalClosed > 0 ? (
+                <span className="font-mono text-xs tabular text-ink-500">n={totalClosed} closed</span>
+              ) : undefined
+            }
+          >
+            <p className="mb-4 text-xs text-ink-500">
+              Always computed from every closed application, regardless of the &quot;Include closed&quot; filter above.
+            </p>
+            {totalClosed > 0 ? (
+              <div className="grid gap-5 sm:grid-cols-3">
+                <RejectionBreakdown title="Outcomes" rows={rejectionAnalytics.rejection.outcomes} color="var(--status-down)" />
+                <RejectionBreakdown title="Rejection stage" rows={rejectionAnalytics.rejection.stages} color="var(--status-warn)" />
+                <RejectionBreakdown title="Rejection reasons" rows={rejectionAnalytics.rejection.reasons} color="var(--brand)" />
+              </div>
             ) : (
-              <EmptyState title="No closed outcomes" description="Record outcomes on closed applications to populate this chart." />
+              <EmptyState title="No closed outcomes yet" description="Record outcomes on closed applications to populate this panel." />
             )}
           </Panel>
         </StaggerItem>
 
         {/* Weekly volume */}
-        <StaggerItem>
-          <Panel title="Weekly volume" icon={Activity} className="h-full">
+        <StaggerItem className="xl:col-span-2">
+          <Panel title="Weekly volume" icon={Activity}>
             {analytics.weeklyVolume.length ? (
               <SingleChart data={analytics.weeklyVolume} xKey="week" dataKey="count" color="var(--brand)" />
             ) : (
@@ -337,6 +396,48 @@ function Metric({ label, value, suffix }: { label: string; value: number | undef
   )
 }
 
+/* ── Rejection breakdown — horizontal count bars, same grammar as the funnel ─ */
+
+function RejectionBreakdown({
+  title,
+  rows,
+  color,
+}: {
+  title: string
+  rows: Array<{ name: string; value: number }>
+  color: string
+}) {
+  const max = Math.max(1, ...rows.map((row) => row.value))
+  return (
+    <div>
+      <p className="micro-label mb-2">{title}</p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-ink-500">No data yet.</p>
+      ) : (
+        <div className="grid gap-2">
+          {rows
+            .slice()
+            .sort((a, b) => b.value - a.value)
+            .map((row) => (
+              <div key={row.name} className="grid grid-cols-[1fr_auto] items-center gap-2">
+                <span className="truncate text-xs text-ink-300" title={row.name}>
+                  {row.name.replace(/_/g, " ")}
+                </span>
+                <span className="font-mono text-xs tabular text-ink-500">{row.value}</span>
+                <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-surface-3 ring-1 ring-inset ring-line">
+                  <span
+                    className="block h-full rounded-full transition-[width] duration-500 ease-out"
+                    style={{ width: `${Math.max((row.value / max) * 100, 6)}%`, background: color }}
+                  />
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const tooltipStyle = {
   background: "var(--surface-3)",
   border: "1px solid var(--line-strong)",
@@ -346,33 +447,84 @@ const tooltipStyle = {
   boxShadow: "var(--shadow-overlay)",
 }
 
-function GroupedChart({ data, xKey }: { data: Array<Record<string, string | number>>; xKey: string }) {
+/* Two-line x-axis tick: segment label on top, sample size (n=) below. */
+function SegmentTick({
+  x,
+  y,
+  payload,
+  rows,
+}: {
+  x?: number | string
+  y?: number | string
+  payload?: { value: string }
+  rows: Array<{ key: string; total: number }>
+}) {
+  if (x === undefined || y === undefined || !payload) return null
+  const row = rows.find((r) => r.key === payload.value)
   return (
-    <div className="h-80 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} barGap={2} barCategoryGap="22%">
-          <defs>
-            {SERIES.map((s) => (
-              <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={s.color} stopOpacity={0.95} />
-                <stop offset="100%" stopColor={s.color} stopOpacity={0.55} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid stroke="var(--line)" strokeOpacity={0.5} vertical={false} />
-          <XAxis dataKey={xKey} tick={{ fill: "var(--ink-500)", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "var(--line)" }} />
-          <YAxis tick={{ fill: "var(--ink-500)", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
-          <Tooltip cursor={{ fill: "var(--surface-3)", opacity: 0.35 }} contentStyle={tooltipStyle} />
-          <Legend
-            iconType="circle"
-            wrapperStyle={{ fontSize: 12, color: "var(--ink-300)" }}
-            formatter={(value) => SERIES.find((s) => s.key === value)?.label ?? value}
-          />
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={12} textAnchor="middle" fill="var(--ink-500)" fontSize={11}>
+        {payload.value}
+      </text>
+      {row !== undefined && (
+        <text x={0} y={0} dy={26} textAnchor="middle" fill="var(--ink-500)" fontSize={9} opacity={0.75} className="font-mono tabular">
+          n={row.total}
+        </text>
+      )}
+    </g>
+  )
+}
+
+function GroupedChart({ data }: { data: Array<{ key: string; total: number } & Record<string, string | number>> }) {
+  const minWidth = Math.max(320, data.length * 90)
+  return (
+    <div className="w-full overflow-x-auto">
+      <div style={{ minWidth }}>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} barGap={2} barCategoryGap="22%" margin={{ bottom: 12 }}>
+              <defs>
+                {SERIES.map((s) => (
+                  <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={s.color} stopOpacity={0.95} />
+                    <stop offset="100%" stopColor={s.color} stopOpacity={0.55} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid stroke="var(--line)" strokeOpacity={0.5} vertical={false} />
+              <XAxis
+                dataKey="key"
+                height={36}
+                interval={0}
+                tick={(props) => <SegmentTick {...props} rows={data} />}
+                tickLine={false}
+                axisLine={{ stroke: "var(--line)" }}
+              />
+              <YAxis tick={{ fill: "var(--ink-500)", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} unit="%" />
+              <Tooltip
+                cursor={{ fill: "var(--surface-3)", opacity: 0.35 }}
+                contentStyle={tooltipStyle}
+                formatter={(value, name) => [`${value}%`, SERIES.find((s) => s.key === name)?.label ?? name]}
+                labelFormatter={(label, payload) => {
+                  const total = payload?.[0]?.payload?.total
+                  return total !== undefined ? `${label} · n=${total}` : label
+                }}
+              />
+              {SERIES.map((s) => (
+                <Bar key={s.key} dataKey={s.key} name={s.label} fill={`url(#grad-${s.key})`} radius={[4, 4, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-ink-300">
           {SERIES.map((s) => (
-            <Bar key={s.key} dataKey={s.key} fill={`url(#grad-${s.key})`} radius={[4, 4, 0, 0]} />
+            <span key={s.key} className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full" style={{ background: s.color }} />
+              {s.label}
+            </span>
           ))}
-        </BarChart>
-      </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   )
 }

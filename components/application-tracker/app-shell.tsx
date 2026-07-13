@@ -41,18 +41,52 @@ import { MeshBackground } from "./atmosphere"
 import { QuickActions } from "./command-palette"
 import { useAppData } from "./use-app-data"
 
-const navItems = [
-  { href: "/app", label: "Today", icon: Gauge },
-  { href: "/app/targets", label: "Targets", icon: Target },
-  { href: "/app/applications", label: "Pipeline", icon: BriefcaseBusiness },
-  { href: "/app/interviews", label: "Interviews", icon: CalendarClock },
-  { href: "/app/prep", label: "Prep", icon: BookOpenCheck },
-  { href: "/app/stories", label: "Stories", icon: Trophy },
-  { href: "/app/people", label: "People", icon: Users },
-  { href: "/app/documents", label: "Documents", icon: FileText },
-  { href: "/app/insights", label: "Insights", icon: BarChart3 },
-  { href: "/app/settings", label: "Settings", icon: Settings },
+type NavItem = {
+  href: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+}
+
+type NavGroup = {
+  label?: string
+  items: readonly NavItem[]
+}
+
+const navGroups: readonly NavGroup[] = [
+  {
+    items: [{ href: "/app", label: "Today", icon: Gauge }],
+  },
+  {
+    label: "Search",
+    items: [
+      { href: "/app/targets", label: "Targets", icon: Target },
+      { href: "/app/applications", label: "Pipeline", icon: BriefcaseBusiness },
+      { href: "/app/interviews", label: "Interviews", icon: CalendarClock },
+    ],
+  },
+  {
+    label: "Toolkit",
+    items: [
+      { href: "/app/prep", label: "Prep", icon: BookOpenCheck },
+      { href: "/app/stories", label: "Stories", icon: Trophy },
+      { href: "/app/people", label: "People", icon: Users },
+      { href: "/app/documents", label: "Documents", icon: FileText },
+    ],
+  },
+  {
+    label: "Review",
+    items: [
+      { href: "/app/insights", label: "Insights", icon: BarChart3 },
+      { href: "/app/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ] as const
+
+// Stable entrance-stagger index per item, computed once at module scope so
+// the render loop below never mutates a counter across iterations.
+const navItemStaggerIndex = new Map<string, number>(
+  navGroups.flatMap((group) => group.items).map((item, idx) => [item.href, idx])
+)
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
@@ -240,7 +274,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="Breadcrumb"
               className="flex min-w-0 items-center gap-1.5 text-sm"
             >
-              {crumbs(pathname).map((part, i, arr) => (
+              {crumbs(pathname, data?.applications).map((part, i, arr) => (
                 <span key={`${part}-${i}`} className="flex items-center gap-1.5">
                   {i > 0 && <span className="text-ink-500">/</span>}
                   <span
@@ -316,72 +350,94 @@ function NavLinks({
 }) {
   return (
     <>
-      {navItems.map((item, i) => {
-        const active =
-          item.href === "/app"
-            ? pathname === item.href
-            : pathname.startsWith(item.href)
-        const Icon = item.icon
-
-        const link = (
-          <Link
-            href={item.href}
-            onClick={onNavigate}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "group/item relative flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-              "group-data-[collapsed]/rail:justify-center group-data-[collapsed]/rail:gap-0 group-data-[collapsed]/rail:px-0",
-              active
-                ? "text-ink-100"
-                : "text-ink-300 hover:bg-surface-3/60 hover:text-ink-100"
-            )}
-          >
-            {active && (
-              <motion.span
-                layoutId={layoutId}
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                className="absolute inset-0 rounded-xl border border-brand/30 bg-brand-weak shadow-glow"
-              />
-            )}
-            {active && (
-              <span className="absolute inset-y-2 left-0 z-10 w-0.5 rounded-full bg-brand group-data-[collapsed]/rail:hidden" />
-            )}
-            <Icon
+      {navGroups.map((group, gi) => (
+        <div key={group.label ?? `group-${gi}`} className="flex flex-col gap-1">
+          {group.label && (
+            <div
               className={cn(
-                "relative z-10 size-[18px] shrink-0 transition-transform duration-200 group-hover/item:scale-110",
-                active && "text-brand"
-              )}
-            />
-            <span
-              className={cn(
-                "relative z-10 overflow-hidden whitespace-nowrap opacity-100",
-                "group-data-[collapsed]/rail:w-0 group-data-[collapsed]/rail:opacity-0",
-                "group-data-[animate]/rail:transition-[opacity] group-data-[animate]/rail:duration-150"
+                "px-3 pb-1",
+                gi === 0 ? "pt-0" : "pt-3",
+                "group-data-[collapsed]/rail:px-2 group-data-[collapsed]/rail:pt-3 group-data-[collapsed]/rail:pb-2"
               )}
             >
-              {item.label}
-            </span>
-          </Link>
-        )
+              <span className="micro-label block group-data-[collapsed]/rail:hidden">
+                {group.label}
+              </span>
+              <span
+                aria-hidden="true"
+                className="hidden h-px w-full bg-line group-data-[collapsed]/rail:block"
+              />
+            </div>
+          )}
+          {group.items.map((item) => {
+            const index = navItemStaggerIndex.get(item.href) ?? 0
+            const active =
+              item.href === "/app"
+                ? pathname === item.href
+                : pathname.startsWith(item.href)
+            const Icon = item.icon
 
-        return (
-          <motion.div
-            key={item.href}
-            initial={reduce ? false : { opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 + i * 0.045, duration: 0.4, ease: EASE }}
-          >
-            {collapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
-              </Tooltip>
-            ) : (
-              link
-            )}
-          </motion.div>
-        )
-      })}
+            const link = (
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "group/item relative flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                  "group-data-[collapsed]/rail:justify-center group-data-[collapsed]/rail:gap-0 group-data-[collapsed]/rail:px-0",
+                  active
+                    ? "text-ink-100"
+                    : "text-ink-300 hover:bg-surface-3/60 hover:text-ink-100"
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId={layoutId}
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    className="absolute inset-0 rounded-xl border border-brand/30 bg-brand-weak shadow-glow"
+                  />
+                )}
+                {active && (
+                  <span className="absolute inset-y-2 left-0 z-10 w-0.5 rounded-full bg-brand group-data-[collapsed]/rail:hidden" />
+                )}
+                <Icon
+                  className={cn(
+                    "relative z-10 size-[18px] shrink-0 transition-transform duration-200 group-hover/item:scale-110",
+                    active && "text-brand"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "relative z-10 overflow-hidden whitespace-nowrap opacity-100",
+                    "group-data-[collapsed]/rail:w-0 group-data-[collapsed]/rail:opacity-0",
+                    "group-data-[animate]/rail:transition-[opacity] group-data-[animate]/rail:duration-150"
+                  )}
+                >
+                  {item.label}
+                </span>
+              </Link>
+            )
+
+            return (
+              <motion.div
+                key={item.href}
+                initial={reduce ? false : { opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.05 + index * 0.045, duration: 0.4, ease: EASE }}
+              >
+                {collapsed ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{link}</TooltipTrigger>
+                    <TooltipContent side="right">{item.label}</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  link
+                )}
+              </motion.div>
+            )
+          })}
+        </div>
+      ))}
     </>
   )
 }
@@ -562,7 +618,37 @@ function MobileNav({
   )
 }
 
-function crumbs(pathname: string) {
+// Route segments the breadcrumb knows how to humanize — mirrors the rail's
+// labels, but the root "app" segment reads "Home" here (it's "Today" in nav).
+const SEGMENT_LABELS: Record<string, string> = {
+  app: "Home",
+  applications: "Pipeline",
+  targets: "Targets",
+  interviews: "Interviews",
+  prep: "Prep",
+  stories: "Stories",
+  people: "People",
+  documents: "Documents",
+  insights: "Insights",
+  settings: "Settings",
+  goals: "Goals",
+  analytics: "Analytics",
+}
+
+function crumbs(
+  pathname: string,
+  applications: Array<{ _id: string; companyName: string }> | undefined
+) {
   const parts = pathname.split("/").filter(Boolean)
-  return parts.length ? parts : ["app"]
+  if (parts.length === 0) return ["Home"]
+  return parts.map((part, i) => {
+    if (SEGMENT_LABELS[part]) return SEGMENT_LABELS[part]
+    // The only unmapped segment we expect is an application's Convex _id at
+    // the tail of /app/applications/[id] — resolve it to the company name.
+    if (i === parts.length - 1 && parts[i - 1] === "applications") {
+      const match = applications?.find((application) => application._id === part)
+      return match?.companyName ?? "Application"
+    }
+    return part
+  })
 }

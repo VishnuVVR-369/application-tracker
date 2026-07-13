@@ -92,7 +92,22 @@ export const updatePlan = mutation({
     id: v.id("interviewPrepPlans"),
     title: v.optional(v.string()),
     status: v.optional(prepPlanStatus),
-    ...optionalPrepFields,
+    applicationId: v.optional(v.union(v.id("applications"), v.null())),
+    targetCompanyId: v.optional(v.union(v.id("targetCompanies"), v.null())),
+    focusAreas: v.optional(v.array(prepFocusArea)),
+    codingDrillsTarget: v.optional(v.number()),
+    codingDrillsDone: v.optional(v.number()),
+    systemDesignDrillsTarget: v.optional(v.number()),
+    systemDesignDrillsDone: v.optional(v.number()),
+    behavioralStoriesTarget: v.optional(v.number()),
+    behavioralStoriesReady: v.optional(v.number()),
+    mockInterviewsTarget: v.optional(v.number()),
+    mockInterviewsDone: v.optional(v.number()),
+    companyResearchDone: v.optional(v.boolean()),
+    resumeDeepDiveDone: v.optional(v.boolean()),
+    weaknessTags: v.optional(v.array(v.string())),
+    nextAction: v.optional(v.union(v.string(), v.null())),
+    notes: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
@@ -100,13 +115,11 @@ export const updatePlan = mutation({
     if (!plan || plan.userId !== user._id) {
       throw new Error("Interview prep plan not found")
     }
-    await ensureApplication(ctx, args.applicationId, user._id)
-    await ensureTargetCompany(ctx, args.targetCompanyId, user._id)
+    await ensureApplication(ctx, args.applicationId ?? undefined, user._id)
+    await ensureTargetCompany(ctx, args.targetCompanyId ?? undefined, user._id)
     const now = Date.now()
 
-    const patch = removeUndefined({
-      applicationId: args.applicationId,
-      targetCompanyId: args.targetCompanyId,
+    const patch: Record<string, unknown> = removeUndefined({
       title: args.title,
       status: args.status,
       focusAreas: args.focusAreas,
@@ -121,11 +134,17 @@ export const updatePlan = mutation({
       companyResearchDone: args.companyResearchDone,
       resumeDeepDiveDone: args.resumeDeepDiveDone,
       weaknessTags: args.weaknessTags,
+      updatedAt: now,
+    })
+    for (const [key, value] of Object.entries({
+      applicationId: args.applicationId,
+      targetCompanyId: args.targetCompanyId,
       nextAction: args.nextAction,
       notes: args.notes,
-      updatedAt: now,
-    }) as Partial<Doc<"interviewPrepPlans">>
+    })) {
+      if (value !== undefined) patch[key] = value === null ? undefined : value
+    }
 
-    await ctx.db.patch(args.id, patch)
+    await ctx.db.patch(args.id, patch as Partial<Doc<"interviewPrepPlans">>)
   },
 })

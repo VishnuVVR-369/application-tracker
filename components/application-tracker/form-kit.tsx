@@ -20,13 +20,13 @@ export function Field({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn("grid gap-1.5", className)}>
-      <Label className="flex items-baseline justify-between gap-2">
+    <Label className={cn("grid gap-1.5 leading-normal", className)}>
+      <span className="flex items-baseline justify-between gap-2">
         <span>{label}</span>
         {hint && <span className="text-[11px] font-normal text-ink-500">{hint}</span>}
-      </Label>
+      </span>
       {children}
-    </div>
+    </Label>
   )
 }
 
@@ -68,7 +68,10 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
 export function FormError({ message }: { message?: string }) {
   if (!message) return null
   return (
-    <p className="rounded-md border border-status-down/30 bg-status-down/10 px-3 py-2 text-sm text-status-down">
+    <p
+      role="alert"
+      className="rounded-md border border-status-down/30 bg-status-down/10 px-3 py-2 text-sm text-status-down"
+    >
       {message}
     </p>
   )

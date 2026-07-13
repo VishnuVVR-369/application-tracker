@@ -107,6 +107,7 @@ function Breakdown({
   rows: Array<{ label: string; count: number }>
   className?: string
 }) {
+  const max = Math.max(1, ...rows.map((row) => row.count))
   return (
     <div className={className}>
       <p className="micro-label mb-2">{title}</p>
@@ -115,9 +116,18 @@ function Breakdown({
       ) : (
         <div className="grid gap-2">
           {rows.slice(0, 6).map((row) => (
-            <div key={row.label} className="flex items-center justify-between rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm">
-              <span>{row.label.replace(/_/g, " ")}</span>
-              <span className="font-mono text-xs text-ink-500">{row.count}</span>
+            <div
+              key={row.label}
+              className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1.5 rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm"
+            >
+              <span className="truncate">{row.label.replace(/_/g, " ")}</span>
+              <span className="font-mono text-xs tabular text-ink-500">{row.count}</span>
+              <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-surface-3 ring-1 ring-inset ring-line">
+                <span
+                  className="block h-full rounded-full bg-status-down/70 transition-[width] duration-500 ease-out"
+                  style={{ width: `${Math.max((row.count / max) * 100, 6)}%` }}
+                />
+              </span>
             </div>
           ))}
         </div>

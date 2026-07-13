@@ -22,6 +22,7 @@ import {
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -181,6 +182,7 @@ export function ApplicationsPage() {
   const [sourceFilter, setSourceFilter] = React.useState<string>("")
   const [referralFilter, setReferralFilter] = React.useState<string>(initialReferral)
   const [includeArchived, setIncludeArchived] = React.useState(false)
+  const [query, setQuery] = React.useState("")
   const [sort, setSort] = React.useState<SortState | null>(null)
   const [draggedId, setDraggedId] = React.useState<string | null>(null)
   const [dragOverStage, setDragOverStage] = React.useState<ApplicationStage | null>(null)
@@ -200,6 +202,7 @@ export function ApplicationsPage() {
   }
 
   const allApplications = data.applications.map(mapApplication)
+  const normalizedQuery = query.trim().toLowerCase()
 
   // Per-application enrichment for cards/rows: soonest upcoming interview and
   // how many people are attached.
@@ -216,13 +219,20 @@ export function ApplicationsPage() {
     contactCountByApp.set(contact.applicationId, (contactCountByApp.get(contact.applicationId) ?? 0) + 1)
   }
 
-  const filtersActive = Boolean(stageFilter || sourceFilter || referralFilter || includeArchived)
+  const filtersActive = Boolean(
+    stageFilter || sourceFilter || referralFilter || includeArchived || normalizedQuery
+  )
 
   const applications = allApplications
     .filter((application) => includeArchived || !application.archived)
     .filter((application) => !stageFilter || application.stage === stageFilter)
     .filter((application) => !sourceFilter || application.source === sourceFilter)
     .filter((application) => !referralFilter || application.referralStatus === referralFilter)
+    .filter((application) => {
+      if (!normalizedQuery) return true
+      const haystack = `${application.companyName} ${application.roleTitle}`.toLowerCase()
+      return haystack.includes(normalizedQuery)
+    })
     .sort((a, b) => b.updatedAt - a.updatedAt)
 
   const rows: Row[] = applications.map((application) => ({
@@ -251,6 +261,7 @@ export function ApplicationsPage() {
     setSourceFilter("")
     setReferralFilter("")
     setIncludeArchived(false)
+    setQuery("")
   }
 
   return (
@@ -293,6 +304,13 @@ export function ApplicationsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search company or role…"
+            aria-label="Search applications"
+            className="h-9 w-full sm:w-48"
+          />
           <FilterSelect
             value={stageFilter}
             onChange={setStageFilter}

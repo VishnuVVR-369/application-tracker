@@ -89,30 +89,41 @@ export const updateStory = mutation({
     action: v.optional(v.string()),
     result: v.optional(v.string()),
     archived: v.optional(v.boolean()),
-    ...optionalStoryFields,
+    project: v.optional(v.union(v.string(), v.null())),
+    impactMetrics: v.optional(v.union(v.string(), v.null())),
+    technologies: v.optional(v.array(v.string())),
+    competencies: v.optional(v.array(storyCompetency)),
+    senioritySignal: v.optional(v.union(v.string(), v.null())),
+    notes: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx)
     await ensureStory(ctx, args.id, user._id)
     const now = Date.now()
-    const patch = removeUndefined({
+    const patch: Record<string, unknown> = removeUndefined({
       title: args.title,
-      project: args.project,
       situation: args.situation,
       task: args.task,
       action: args.action,
       result: args.result,
-      impactMetrics: args.impactMetrics,
       technologies: args.technologies,
       competencies: args.competencies,
+      archived: args.archived,
+      updatedAt: now,
+    })
+    for (const [key, value] of Object.entries({
+      project: args.project,
+      impactMetrics: args.impactMetrics,
       senioritySignal: args.senioritySignal,
       notes: args.notes,
-      archived: args.archived,
-      archivedAt: args.archived === undefined ? undefined : args.archived ? now : undefined,
-      updatedAt: now,
-    }) as Partial<Doc<"storyBankEntries">>
+    })) {
+      if (value !== undefined) patch[key] = value === null ? undefined : value
+    }
+    if (args.archived !== undefined) {
+      patch.archivedAt = args.archived ? now : undefined
+    }
 
-    await ctx.db.patch(args.id, patch)
+    await ctx.db.patch(args.id, patch as Partial<Doc<"storyBankEntries">>)
   },
 })
 

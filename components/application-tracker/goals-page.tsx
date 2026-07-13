@@ -6,6 +6,8 @@ import {
   Award,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   FileCheck,
   PhoneCall,
   Plus,
@@ -14,16 +16,24 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { WIN_TYPES } from "@/lib/application-model"
-import { formatShortDate } from "@/lib/date-model"
-import { calculateGoalProgress, createDefaultWeeklyGoal, getWeekKey, WIN_TYPE_LABELS } from "@/lib/goals-model"
+import { addDays, formatShortDate } from "@/lib/date-model"
+import {
+  calculateGoalProgress,
+  createDefaultWeeklyGoal,
+  getWeekKey,
+  getWeekRange,
+  WIN_TYPE_LABELS,
+} from "@/lib/goals-model"
 import { cn } from "@/lib/utils"
 import { CountUp, Stagger, StaggerItem } from "./atmosphere"
 import { EmptyState, PageHeader, Panel, ProgressBar } from "./common"
@@ -31,8 +41,7 @@ import { GoalsSkeleton } from "./skeletons"
 import { mapApplication, mapGoal, mapTask, mapWin } from "./data-mappers"
 import { useAppData } from "./use-app-data"
 
-const selectClass =
-  "h-9 rounded-md border border-line bg-surface-1 px-2 text-sm text-ink-100 outline-none transition-colors hover:border-line-strong focus:ring-3 focus:ring-ring/50"
+const NO_APPLICATION = "__none__"
 
 const winMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; tone: string }> = {
   application_submitted: { icon: Send, tone: "text-stage-applied bg-stage-applied/12" },
@@ -41,6 +50,68 @@ const winMeta: Record<string, { icon: React.ComponentType<{ className?: string }
   offer_received: { icon: Award, tone: "text-stage-offer bg-stage-offer/12" },
   resume_improved: { icon: FileCheck, tone: "text-status-info bg-status-info/12" },
   follow_up_completed: { icon: CheckCircle2, tone: "text-status-up bg-status-up/12" },
+}
+
+/** Shift a Monday week key by a number of days, always re-snapping to Monday. */
+function shiftWeek(weekStartDate: string, days: number) {
+  const base = new Date(`${weekStartDate}T00:00:00`)
+  return getWeekKey(addDays(base, days))
+}
+
+function formatWeekRangeLabel(weekStartDate: string) {
+  const { start, end } = getWeekRange(weekStartDate)
+  const fmt = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" })
+  return `${fmt.format(start)} – ${fmt.format(end)}`
+}
+
+/** A number input that edits local state and only commits (persists) on blur/Enter, and only when changed. */
+function NumberField({
+  value,
+  onCommit,
+  className,
+}: {
+  value: number
+  onCommit: (value: number) => Promise<boolean>
+  className?: string
+}) {
+  const [local, setLocal] = React.useState(() => String(value))
+  const [pending, setPending] = React.useState(false)
+
+  async function commit() {
+    if (pending) return
+    const parsed = Number(local)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setLocal(String(value))
+      return
+    }
+    if (parsed !== value) {
+      setPending(true)
+      const saved = await onCommit(parsed)
+      if (!saved) setLocal(String(value))
+      setPending(false)
+    } else if (local !== String(value)) {
+      setLocal(String(value))
+    }
+  }
+
+  return (
+    <Input
+      type="number"
+      min={0}
+      inputMode="numeric"
+      value={local}
+      disabled={pending}
+      onChange={(event) => setLocal(event.target.value)}
+      onBlur={() => void commit()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault()
+          event.currentTarget.blur()
+        }
+      }}
+      className={className}
+    />
+  )
 }
 
 export function GoalsPage() {
@@ -60,7 +131,8 @@ export function GoalsView() {
   const { data, isLoading } = useAppData()
   const upsertGoal = useMutation(api.goals.upsert)
   const addWin = useMutation(api.goals.addWin)
-  const [weekStart, setWeekStart] = React.useState(getWeekKey())
+  const [currentWeekKey] = React.useState(() => getWeekKey())
+  const [weekStart, setWeekStart] = React.useState(currentWeekKey)
   const [fallbackCreatedAt] = React.useState(() => Date.now())
   const [winTitle, setWinTitle] = React.useState("")
   const [winType, setWinType] = React.useState<(typeof WIN_TYPES)[number]>("resume_improved")
@@ -83,46 +155,82 @@ export function GoalsView() {
   const progress = calculateGoalProgress({ goal, applications, tasks, wins })
   const completedCount = progress.filter((m) => m.percent >= 100).length
 
-  async function updateTarget(key: string, value: string) {
-    await upsertGoal({ weekStartDate: weekStart, [key]: Number(value) })
+  async function updateTarget(key: string, value: number) {
+    try {
+      await upsertGoal({ weekStartDate: weekStart, [key]: value })
+      return true
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update weekly target")
+      return false
+    }
   }
 
   async function saveReview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    await upsertGoal({
-      weekStartDate: weekStart,
-      lessonsLearned: String(formData.get("lessonsLearned") ?? ""),
-      nextWeekFocus: String(formData.get("nextWeekFocus") ?? ""),
-    })
+    try {
+      await upsertGoal({
+        weekStartDate: weekStart,
+        lessonsLearned: String(formData.get("lessonsLearned") ?? ""),
+        nextWeekFocus: String(formData.get("nextWeekFocus") ?? ""),
+      })
+      toast.success("Weekly review saved")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save weekly review")
+    }
   }
 
   async function saveWin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!winTitle.trim()) return
-    await addWin({
-      type: winType,
-      title: winTitle,
-      applicationId: winApplicationId ? (winApplicationId as Id<"applications">) : undefined,
-      occurredAt: Date.now(),
-    })
-    setWinTitle("")
-    setWinApplicationId("")
+    try {
+      await addWin({
+        type: winType,
+        title: winTitle,
+        applicationId: winApplicationId ? (winApplicationId as Id<"applications">) : undefined,
+        occurredAt: Date.now(),
+      })
+      setWinTitle("")
+      setWinApplicationId("")
+      toast.success("Win logged")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not log win")
+    }
   }
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-end">
-        <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-1/70 px-3 py-1.5">
-          <CalendarDays className="size-4 text-ink-500" />
-          <span className="text-xs text-ink-300">Week of</span>
-          <input
-            type="date"
-            value={weekStart}
-            onChange={(event) => setWeekStart(event.target.value)}
-            className="bg-transparent font-mono text-sm tabular text-ink-100 outline-none"
-          />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-surface-1/70 p-1 pl-2.5">
+          <CalendarDays className="size-4 shrink-0 text-ink-500" />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Previous week"
+            onClick={() => setWeekStart((current) => shiftWeek(current, -7))}
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <span className="min-w-[11rem] text-center font-mono text-sm tabular text-ink-100">
+            {formatWeekRangeLabel(weekStart)}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Next week"
+            onClick={() => setWeekStart((current) => shiftWeek(current, 7))}
+          >
+            <ChevronRight className="size-4" />
+          </Button>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={weekStart === currentWeekKey}
+          onClick={() => setWeekStart(currentWeekKey)}
+        >
+          This week
+        </Button>
       </div>
 
       <Stagger className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
@@ -158,11 +266,10 @@ export function GoalsView() {
                           </p>
                         </div>
                       </div>
-                      <Input
-                        type="number"
-                        min={0}
+                      <NumberField
+                        key={`${weekStart}:${metric.key}`}
                         value={metric.target}
-                        onChange={(event) => void updateTarget(`${metric.key}Target`, event.target.value)}
+                        onCommit={(value) => updateTarget(`${metric.key}Target`, value)}
                         className="w-20"
                       />
                     </div>
@@ -173,13 +280,10 @@ export function GoalsView() {
               <div className="rounded-xl border border-line bg-surface-1/60 p-4">
                 <p className="text-sm font-medium">Manual resume improvements</p>
                 <p className="mt-0.5 text-xs text-ink-500">Counted toward resume-improvement target.</p>
-                <Input
-                  type="number"
-                  min={0}
+                <NumberField
+                  key={`${weekStart}:manualResumeImprovements`}
                   value={goal.manualResumeImprovements}
-                  onChange={(event) =>
-                    void upsertGoal({ weekStartDate: weekStart, manualResumeImprovements: Number(event.target.value) })
-                  }
+                  onCommit={(value) => updateTarget("manualResumeImprovements", value)}
                   className="mt-2 max-w-32"
                 />
               </div>
@@ -190,7 +294,7 @@ export function GoalsView() {
         <StaggerItem>
           <div className="grid h-full gap-4">
             <Panel title="Weekly review" icon={Sparkles}>
-              <form onSubmit={saveReview} className="grid gap-3">
+              <form key={weekStart} onSubmit={saveReview} className="grid gap-3">
                 <div className="grid gap-1.5">
                   <label className="micro-label">Lessons learned</label>
                   <Textarea name="lessonsLearned" defaultValue={goal.lessonsLearned} placeholder="What worked, what didn't…" />
@@ -210,21 +314,34 @@ export function GoalsView() {
               <form onSubmit={saveWin} className="mb-4 grid gap-2 border-b border-line/70 pb-4">
                 <Input value={winTitle} onChange={(event) => setWinTitle(event.target.value)} placeholder="Log a win" />
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <select value={winType} onChange={(event) => setWinType(event.target.value as typeof winType)} className={selectClass}>
-                    {WIN_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {WIN_TYPE_LABELS[type]}
-                      </option>
-                    ))}
-                  </select>
-                  <select value={winApplicationId} onChange={(event) => setWinApplicationId(event.target.value)} className={selectClass}>
-                    <option value="">No application</option>
-                    {data.applications.map((application) => (
-                      <option key={application._id} value={application._id}>
-                        {application.companyName}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={winType} onValueChange={(value) => setWinType(value as typeof winType)}>
+                    <SelectTrigger aria-label="Win type" className="w-full bg-surface-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WIN_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {WIN_TYPE_LABELS[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={winApplicationId || NO_APPLICATION}
+                    onValueChange={(value) => setWinApplicationId(value === NO_APPLICATION ? "" : value)}
+                  >
+                    <SelectTrigger aria-label="Related application" className="w-full bg-surface-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_APPLICATION}>No application</SelectItem>
+                      {data.applications.map((application) => (
+                        <SelectItem key={application._id} value={application._id}>
+                          {application.companyName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button type="submit" variant="secondary" className="w-fit">
                   <Plus className="size-4" />

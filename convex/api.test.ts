@@ -272,6 +272,7 @@ describe("convex api", () => {
       priorityScore: 95,
       roleFitScore: 85,
       referralGoal: 2,
+      researchNotes: "High-priority research",
     })
     const outreachId = await authed.mutation(api.targets.createOutreach, {
       targetCompanyId,
@@ -295,6 +296,7 @@ describe("convex api", () => {
       focusAreas: ["dsa", "system_design", "behavioral"],
       codingDrillsTarget: 20,
       codingDrillsDone: 8,
+      nextAction: "Finish graph drills",
     })
     const storyId = await authed.mutation(api.stories.createStory, {
       title: "Scaled ingestion platform",
@@ -323,5 +325,48 @@ describe("convex api", () => {
     expect(snapshot?.interviewPrepPlans[0]._id).toBe(prepPlanId)
     expect(snapshot?.storyBankEntries[0]._id).toBe(storyId)
     expect(snapshot?.storyUsages[0]._id).toBe(usageId)
+
+    await authed.mutation(api.targets.updateCompany, {
+      id: targetCompanyId,
+      website: null,
+      researchNotes: null,
+      archived: true,
+    })
+    await authed.mutation(api.targets.updateCompany, { id: targetCompanyId, archived: false })
+    await authed.mutation(api.targets.updateOutreach, {
+      id: outreachId,
+      targetCompanyId: null,
+      applicationId: null,
+      email: null,
+      followUpDate: null,
+    })
+    await authed.mutation(api.prep.updatePlan, {
+      id: prepPlanId,
+      applicationId: null,
+      targetCompanyId: null,
+      nextAction: null,
+    })
+    await authed.mutation(api.stories.updateStory, {
+      id: storyId,
+      impactMetrics: null,
+      archived: true,
+    })
+    await authed.mutation(api.stories.updateStory, { id: storyId, archived: false })
+
+    const cleared = await authed.query(api.appData.get)
+    expect(cleared?.targetCompanies[0].website).toBeUndefined()
+    expect(cleared?.targetCompanies[0].domain).toBeUndefined()
+    expect(cleared?.targetCompanies[0].researchNotes).toBeUndefined()
+    expect(cleared?.targetCompanies[0].archivedAt).toBeUndefined()
+    expect(cleared?.referralOutreach[0].targetCompanyId).toBeUndefined()
+    expect(cleared?.referralOutreach[0].applicationId).toBeUndefined()
+    expect(cleared?.referralOutreach[0].email).toBeUndefined()
+    expect(cleared?.referralOutreach[0].normalizedEmail).toBeUndefined()
+    expect(cleared?.referralOutreach[0].followUpDate).toBeUndefined()
+    expect(cleared?.interviewPrepPlans[0].applicationId).toBeUndefined()
+    expect(cleared?.interviewPrepPlans[0].targetCompanyId).toBeUndefined()
+    expect(cleared?.interviewPrepPlans[0].nextAction).toBeUndefined()
+    expect(cleared?.storyBankEntries[0].impactMetrics).toBeUndefined()
+    expect(cleared?.storyBankEntries[0].archivedAt).toBeUndefined()
   })
 })
