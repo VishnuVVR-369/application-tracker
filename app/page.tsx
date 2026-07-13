@@ -8,7 +8,6 @@ import {
   FileText,
   GitBranch,
   LineChart,
-  Sparkles,
   Target,
   TrendingUp,
 } from "lucide-react"
@@ -21,6 +20,7 @@ import {
   Stagger,
   StaggerItem,
 } from "@/components/application-tracker/atmosphere"
+import { ApplicationTrackerMark } from "@/components/application-tracker/application-tracker-mark"
 import { hasConvexAuthEnv, isAuthenticated } from "@/lib/auth-server"
 
 const PILLARS = [
@@ -70,7 +70,7 @@ export default async function Home() {
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
             <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
               <span className="flex size-7 items-center justify-center rounded-lg bg-linear-to-br from-brand-hover to-brand text-primary-foreground shadow-glow">
-                <Sparkles className="size-4" />
+                <ApplicationTrackerMark className="size-4" />
               </span>
               Application Tracker
             </Link>
@@ -342,7 +342,7 @@ export default async function Home() {
         <div className="mx-auto flex max-w-6xl flex-col gap-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-2">
             <span className="flex size-5 items-center justify-center rounded bg-linear-to-br from-brand-hover to-brand text-primary-foreground">
-              <Sparkles className="size-3" />
+              <ApplicationTrackerMark className="size-3" />
             </span>
             Application Tracker
           </p>

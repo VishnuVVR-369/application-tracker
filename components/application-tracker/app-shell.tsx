@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 
 import { ThemeToggle } from "@/components/theme-toggle"
+import { ApplicationTrackerMark } from "@/components/application-tracker/application-tracker-mark"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -321,7 +322,7 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
       className="group/brand flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-surface-3/50 group-data-[collapsed]/rail:justify-center group-data-[collapsed]/rail:px-0"
     >
       <span className="relative flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-brand-hover to-brand text-primary-foreground shadow-glow transition-transform duration-300 group-hover/brand:scale-105">
-        <BriefcaseBusiness className="size-[18px]" />
+        <ApplicationTrackerMark className="size-[18px]" />
         <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/15" />
       </span>
       <span className="flex min-w-0 flex-col overflow-hidden whitespace-nowrap opacity-100 transition-opacity duration-200 group-data-[collapsed]/rail:w-0 group-data-[collapsed]/rail:opacity-0">

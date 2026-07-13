@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { ArrowLeft, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowLeft, ShieldCheck } from "lucide-react"
 
+import { ApplicationTrackerMark } from "@/components/application-tracker/application-tracker-mark"
 import { SignInClient } from "@/components/application-tracker/signin-client"
 import { FadeIn, MeshBackground } from "@/components/application-tracker/atmosphere"
 import { hasConvexAuthEnv, isAuthenticated } from "@/lib/auth-server"
@@ -31,7 +32,7 @@ export default async function SignInPage() {
           />
           <section className="glass-strong rounded-2xl p-7 shadow-overlay">
             <span className="flex size-11 items-center justify-center rounded-xl bg-linear-to-br from-brand-hover to-brand text-primary-foreground shadow-glow">
-              <Sparkles className="size-5" />
+              <ApplicationTrackerMark className="size-5" />
             </span>
             <h1 className="mt-5 text-2xl font-semibold tracking-tight">Welcome back</h1>
             <p className="mt-2 text-sm leading-relaxed text-ink-300">
