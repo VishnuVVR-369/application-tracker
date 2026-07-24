@@ -3,13 +3,12 @@ import { redirect } from "next/navigation"
 import {
   ArrowRight,
   BarChart3,
-  CalendarClock,
-  CheckCircle2,
-  FileText,
-  GitBranch,
-  LineChart,
-  Target,
-  TrendingUp,
+  BookOpenCheck,
+  BriefcaseBusiness,
+  Radar,
+  ScanLine,
+  ShieldCheck,
+  Trophy,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -23,36 +22,52 @@ import {
 import { ApplicationTrackerMark } from "@/components/application-tracker/application-tracker-mark"
 import { hasConvexAuthEnv, isAuthenticated } from "@/lib/auth-server"
 
-const PILLARS = [
+/* The three-step story, told the way a job seeker actually experiences it. */
+const STEPS = [
   {
-    icon: CheckCircle2,
-    title: "Track every stage",
-    body: "Move applications from saved to closed on a board that logs every transition automatically.",
+    n: "01",
+    title: "Add the roles you're chasing",
+    body: "Drop in a company and a link. Your resume, notes, contacts, and deadlines all live on that one card.",
   },
   {
-    icon: FileText,
-    title: "Attach what matters",
-    body: "Resumes, deadlines, tasks, and outcomes stay pinned to the application they belong to.",
+    n: "02",
+    title: "Track every move, get a nudge before it goes cold",
+    body: "Slide an application from applied to offer. When a company goes quiet, you'll know before the trail runs out.",
   },
   {
-    icon: BarChart3,
-    title: "See what's working",
-    body: "Funnel conversion, timing, and rejection patterns — by source, referral, and resume version.",
-  },
-  {
-    icon: Target,
-    title: "Hold a cadence",
-    body: "Weekly goals, a win log, and a short review keep momentum without turning into a noisy CRM.",
+    n: "03",
+    title: "Do more of what lands interviews",
+    body: "See where you convert and where you stall, then spend your energy on the roles actually moving forward.",
   },
 ] as const
 
-const STAGES = [
-  { label: "Saved", count: 4, cls: "text-stage-saved bg-stage-saved/15 border-stage-saved/30" },
-  { label: "Applied", count: 12, cls: "text-stage-applied bg-stage-applied/15 border-stage-applied/30" },
-  { label: "Phone", count: 3, cls: "text-stage-phone bg-stage-phone/15 border-stage-phone/30" },
-  { label: "Interview", count: 2, cls: "text-stage-interview bg-stage-interview/15 border-stage-interview/30" },
-  { label: "Offer", count: 1, cls: "text-stage-offer bg-stage-offer/15 border-stage-offer/30" },
-  { label: "Closed", count: 9, cls: "text-stage-closed bg-stage-closed/15 border-stage-closed/30" },
+/* Real capabilities, framed as what they do for you - not feature names. */
+const FEATURES = [
+  {
+    icon: BriefcaseBusiness,
+    title: "One pipeline for the whole search",
+    body: "Saved, applied, phone screen, interview, offer, closed. Every card carries its resume, deadlines, and history so nothing lives in your head.",
+  },
+  {
+    icon: BarChart3,
+    title: "See what's actually working",
+    body: "An honest funnel, real response times, and where you drop off - by source, referral, and resume version. No vanity metrics.",
+  },
+  {
+    icon: ScanLine,
+    title: "Match your resume to the role",
+    body: "Line your resume up against a job description and get a clear read on where it fits and what's missing before you hit send.",
+  },
+  {
+    icon: BookOpenCheck,
+    title: "Walk into interviews ready",
+    body: "Keep prep notes and a library of proof-you-did-it stories, ready to pull up the moment a recruiter reaches out.",
+  },
+  {
+    icon: Trophy,
+    title: "Keep momentum every week",
+    body: "Set a weekly cadence, watch it fill from your activity, and log the wins so a long search never feels like a black hole.",
+  },
 ] as const
 
 export default async function Home() {
@@ -74,13 +89,21 @@ export default async function Home() {
               </span>
               Application Tracker
             </Link>
+            <nav className="hidden items-center gap-7 text-sm text-ink-300 md:flex">
+              <a href="#features" className="transition-colors hover:text-ink-100">
+                Features
+              </a>
+              <a href="#how" className="transition-colors hover:text-ink-100">
+                How it works
+              </a>
+            </nav>
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost" size="sm">
                 <Link href="/signin">Sign in</Link>
               </Button>
               <Button asChild size="sm">
                 <Link href="/signin">
-                  Start tracking
+                  Get started
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
@@ -90,53 +113,52 @@ export default async function Home() {
       </header>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative px-4 pb-20 pt-16 sm:pt-24 lg:px-6">
+      <section className="relative px-4 pb-16 pt-16 sm:pt-24 lg:px-6">
         <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1fr_1.05fr]">
           <div>
             <FadeIn delay={0}>
               <span className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand-weak px-3 py-1 text-xs font-medium text-brand">
                 <span className="size-1.5 rounded-full bg-brand shadow-glow" />
-                Personal job-search operations
+                Your job-search command center
               </span>
             </FadeIn>
             <FadeIn delay={0.08}>
               <h1 className="mt-5 text-balance text-5xl font-semibold leading-[1.04] tracking-tight sm:text-6xl">
-                Run your job search
+                Your whole job search,
                 <br />
-                like a <span className="text-gradient">product.</span>
+                finally <span className="text-gradient">under control.</span>
               </h1>
             </FadeIn>
             <FadeIn delay={0.16}>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-300">
-                Track every application from saved to closed, keep resumes and deadlines
-                attached, understand what&apos;s converting, and hold a steady weekly cadence —
-                all in one calm, dark-first dashboard.
+                Every application, deadline, and interview in one calm place - so
+                you always know what needs your attention next, catch a company
+                going quiet before it ghosts you, and see which moves are actually
+                landing interviews.
               </p>
             </FadeIn>
             <FadeIn delay={0.24}>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Button asChild size="lg" className="h-11 px-5 text-sm">
                   <Link href="/signin">
-                    Start with OAuth
+                    Get started - it&apos;s free
                     <ArrowRight className="size-4" />
                   </Link>
                 </Button>
                 <Button asChild variant="secondary" size="lg" className="h-11 px-5 text-sm">
-                  <Link href="/signin">
-                    <GitBranch className="size-4" />
-                    GitHub &amp; Google
-                  </Link>
+                  <a href="#how">See how it works</a>
                 </Button>
               </div>
             </FadeIn>
             <FadeIn delay={0.32}>
-              <p className="mt-5 font-mono text-xs tracking-wide text-ink-500">
-                No email/password · Six stages · Built around the application
+              <p className="mt-5 flex items-center gap-2 text-sm text-ink-500">
+                <ShieldCheck className="size-4 text-status-up" />
+                Sign in with Google or GitHub. Your search stays private to you.
               </p>
             </FadeIn>
           </div>
 
-          {/* Product mockup */}
+          {/* Product preview */}
           <FadeIn delay={0.2} y={28}>
             <div className="gradient-ring grain relative rounded-2xl">
               <div
@@ -146,7 +168,7 @@ export default async function Home() {
               <div className="glass-strong rounded-2xl p-3 shadow-overlay sm:p-4">
                 {/* mock top bar */}
                 <div className="flex items-center justify-between rounded-xl border border-line bg-surface-1/80 px-3 py-2">
-                  <span className="micro-label">Dashboard</span>
+                  <span className="micro-label">Today</span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-status-up/30 bg-status-up/10 px-2 py-0.5 text-[10px] font-medium text-status-up">
                     <span className="size-1.5 rounded-full bg-status-up" />
                     live
@@ -157,7 +179,7 @@ export default async function Home() {
                 <div className="mt-3 grid grid-cols-3 gap-3">
                   {[
                     ["18", "Active"],
-                    ["6.4d", "First response"],
+                    ["6.4d", "First reply"],
                     ["1", "Offer"],
                   ].map(([v, l]) => (
                     <div key={l} className="rounded-xl border border-line bg-surface-1/80 p-3">
@@ -165,6 +187,19 @@ export default async function Home() {
                       <p className="mt-0.5 text-[11px] text-ink-500">{l}</p>
                     </div>
                   ))}
+                </div>
+
+                {/* ghosting radar alert — the differentiator, on-screen */}
+                <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-status-warn/30 bg-status-warn/10 p-3">
+                  <Radar className="mt-0.5 size-4 shrink-0 text-status-warn" />
+                  <div>
+                    <p className="text-xs font-medium text-ink-100">
+                      3 applications going quiet
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-ink-300">
+                      No reply from Globex in 11 days. Nudge them or let it go.
+                    </p>
+                  </div>
                 </div>
 
                 {/* mini board */}
@@ -193,7 +228,7 @@ export default async function Home() {
 
                 {/* mini funnel */}
                 <div className="mt-3 rounded-xl border border-line bg-surface-1/80 p-3">
-                  <p className="micro-label mb-2.5">Funnel</p>
+                  <p className="micro-label mb-2.5">What&apos;s converting</p>
                   <div className="grid gap-1.5">
                     {[
                       ["Applied", 100, "42"],
@@ -222,89 +257,104 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── Stage strip ─────────────────────────────────────────────────── */}
-      <section className="px-4 pb-8 lg:px-6">
+      {/* ── Quick value chips ───────────────────────────────────────────── */}
+      <section className="px-4 pb-6 lg:px-6">
         <Reveal className="mx-auto max-w-6xl">
-          <div className="glass flex flex-wrap items-center justify-center gap-2 rounded-2xl px-4 py-4 sm:gap-3">
-            {STAGES.map((s, i) => (
-              <span key={s.label} className="flex items-center gap-2 sm:gap-3">
-                {i > 0 && <ArrowRight className="size-3.5 text-ink-500" />}
-                <span
-                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium ${s.cls}`}
-                >
-                  {s.label}
-                  <span className="font-mono text-xs tabular opacity-80">{s.count}</span>
-                </span>
+          <div className="glass flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-2xl px-4 py-4 text-sm text-ink-300 sm:gap-x-6">
+            {[
+              "One pipeline, every stage",
+              "Ghosting radar",
+              "Resume ↔ job match",
+              "Honest analytics",
+              "Weekly cadence",
+            ].map((label, i) => (
+              <span key={label} className="flex items-center gap-3 sm:gap-6">
+                {i > 0 && <span aria-hidden className="size-1 rounded-full bg-ink-500/60" />}
+                <span className="font-medium text-ink-100">{label}</span>
               </span>
             ))}
           </div>
         </Reveal>
       </section>
 
-      {/* ── Pillars ─────────────────────────────────────────────────────── */}
-      <section className="px-4 py-20 lg:px-6">
+      {/* ── How it works ────────────────────────────────────────────────── */}
+      <section id="how" className="scroll-mt-20 px-4 py-20 lg:px-6">
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <p className="micro-label mb-3 flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-brand shadow-glow" />
-              Everything attaches to the application
+              How it works
             </p>
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
-              One record. Every signal you need to make the next move.
+              From scattered tabs to a search you can steer.
             </h2>
           </Reveal>
-          <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PILLARS.map((p) => {
-              const Icon = p.icon
-              return (
-                <StaggerItem key={p.title}>
-                  <div className="glow-hover group h-full rounded-2xl border border-line bg-surface-2/70 p-5">
-                    <span className="flex size-10 items-center justify-center rounded-xl border border-brand/30 bg-brand-weak text-brand shadow-glow transition-transform group-hover:scale-110">
-                      <Icon className="size-5" />
-                    </span>
-                    <h3 className="mt-4 text-base font-semibold tracking-tight">{p.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-ink-300">{p.body}</p>
-                  </div>
-                </StaggerItem>
-              )
-            })}
+          <Stagger className="mt-10 grid gap-4 md:grid-cols-3">
+            {STEPS.map((step) => (
+              <StaggerItem key={step.n}>
+                <div className="glow-hover group h-full rounded-2xl border border-line bg-surface-2/70 p-6">
+                  <span className="font-mono text-sm font-semibold tracking-widest text-brand">
+                    {step.n}
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold tracking-tight">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-300">{step.body}</p>
+                </div>
+              </StaggerItem>
+            ))}
           </Stagger>
         </div>
       </section>
 
-      {/* ── Value rows ──────────────────────────────────────────────────── */}
-      <section className="border-y border-line/60 bg-surface-1/40 px-4 py-20 lg:px-6">
-        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-3">
-          {[
-            {
-              icon: CalendarClock,
-              n: "01",
-              title: "Nothing slips",
-              body: "Deadlines and follow-up tasks surface on the dashboard and on each application, due and overdue.",
-            },
-            {
-              icon: LineChart,
-              n: "02",
-              title: "Honest analytics",
-              body: "Conversion by source, referral status, work arrangement, application quality, and resume version — no vanity metrics.",
-            },
-            {
-              icon: TrendingUp,
-              n: "03",
-              title: "Steady momentum",
-              body: "Weekly targets auto-track from your activity. Log wins, capture lessons, set next-week focus.",
-            },
-          ].map((row) => {
-            const Icon = row.icon
-            return (
-              <Reveal key={row.n}>
-                <span className="micro-label">{row.n}</span>
-                <Icon className="mt-3 size-6 text-brand" />
-                <h3 className="mt-4 text-xl font-semibold tracking-tight">{row.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-300">{row.body}</p>
-              </Reveal>
-            )
-          })}
+      {/* ── Features (command-center bento) ──────────────────────────────── */}
+      <section
+        id="features"
+        className="scroll-mt-20 border-y border-line/60 bg-surface-1/40 px-4 py-20 lg:px-6"
+      >
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <p className="micro-label mb-3 flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-brand shadow-glow" />
+              Everything the search needs
+            </p>
+            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+              A command center built for the way a job hunt really goes.
+            </h2>
+          </Reveal>
+          <Stagger className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f, i) => {
+              const Icon = f.icon
+              // First card spans two columns on large screens for a bento rhythm.
+              const wide = i === 0 ? "lg:col-span-2" : ""
+              return (
+                <StaggerItem key={f.title} className={wide}>
+                  <div className="glow-hover group flex h-full flex-col rounded-2xl border border-line bg-surface-2/70 p-6">
+                    <span className="flex size-10 items-center justify-center rounded-xl border border-brand/30 bg-brand-weak text-brand shadow-glow transition-transform group-hover:scale-110">
+                      <Icon className="size-5" />
+                    </span>
+                    <h3 className="mt-4 text-base font-semibold tracking-tight">{f.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-ink-300">{f.body}</p>
+                  </div>
+                </StaggerItem>
+              )
+            })}
+            {/* Ghosting radar gets its own accent cell to close the grid. */}
+            <StaggerItem>
+              <div className="gradient-ring glow-hover group flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-brand/25 bg-brand-weak p-6">
+                <div>
+                  <span className="flex size-10 items-center justify-center rounded-xl border border-brand/40 bg-surface-2/70 text-brand shadow-glow transition-transform group-hover:scale-110">
+                    <Radar className="size-5" />
+                  </span>
+                  <h3 className="mt-4 text-base font-semibold tracking-tight">
+                    Never wonder if you&apos;ve been ghosted
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-300">
+                    The tracker watches for silence and flags applications going
+                    cold, so you can follow up on time or move on with a clear head.
+                  </p>
+                </div>
+              </div>
+            </StaggerItem>
+          </Stagger>
         </div>
       </section>
 
@@ -318,16 +368,16 @@ export default async function Home() {
             />
             <div className="glass-strong relative rounded-3xl px-6 py-14 text-center sm:px-12">
               <h2 className="mx-auto max-w-2xl text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-                Stop tracking your search in a <span className="text-gradient">spreadsheet.</span>
+                Stop running your search from a <span className="text-gradient">spreadsheet.</span>
               </h2>
               <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-300">
-                Sign in with GitHub or Google and start with your first application in under a
-                minute.
+                Bring every application into one place and add your first role in
+                under a minute.
               </p>
               <div className="mt-8 flex justify-center">
                 <Button asChild size="lg" className="h-11 px-6 text-sm">
                   <Link href="/signin">
-                    Start tracking
+                    Get started - it&apos;s free
                     <ArrowRight className="size-4" />
                   </Link>
                 </Button>
@@ -347,7 +397,7 @@ export default async function Home() {
             Application Tracker
           </p>
           <Link href="/signin" className="text-brand transition-colors hover:text-brand-hover">
-            Sign in with GitHub or Google →
+            Get started →
           </Link>
         </div>
       </footer>
