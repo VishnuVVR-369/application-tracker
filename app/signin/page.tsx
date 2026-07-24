@@ -36,8 +36,7 @@ export default async function SignInPage() {
             </span>
             <h1 className="mt-5 text-2xl font-semibold tracking-tight">Welcome back</h1>
             <p className="mt-2 text-sm leading-relaxed text-ink-300">
-              Sign in to your tracker. We use OAuth only — email and password are
-              intentionally disabled for v1.
+              Pick up your job search right where you left off.
             </p>
 
             <div className="mt-6">
@@ -46,7 +45,7 @@ export default async function SignInPage() {
 
             <p className="mt-6 flex items-center gap-2 border-t border-line/70 pt-5 text-xs text-ink-500">
               <ShieldCheck className="size-3.5 text-status-up" />
-              Single-user account · your data stays yours
+              Your search stays private to you
             </p>
           </section>
         </div>
