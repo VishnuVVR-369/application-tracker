@@ -189,7 +189,7 @@ export default async function Home() {
                   ))}
                 </div>
 
-                {/* ghosting radar alert — the differentiator, on-screen */}
+                {/* ghosting radar alert - the differentiator, on-screen */}
                 <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-status-warn/30 bg-status-warn/10 p-3">
                   <Radar className="mt-0.5 size-4 shrink-0 text-status-warn" />
                   <div>
