@@ -33,7 +33,7 @@ import { mapApplication, mapInterview, mapStory, mapStoryUsage } from "./data-ma
 import { useAppData } from "./use-app-data"
 
 export function StoryBankPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("stories")
   const updateStory = useMutation(api.stories.updateStory)
   const [editingStoryId, setEditingStoryId] = React.useState<string | null>(null)
   const [usageStoryId, setUsageStoryId] = React.useState<string | null>(null)

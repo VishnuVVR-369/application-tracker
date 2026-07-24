@@ -7,7 +7,6 @@ import {
   type ResumeRecord,
 } from "@/lib/application-model"
 import { daysBetween } from "@/lib/date-model"
-import { calculateQualityScore } from "@/lib/quality-model"
 
 const RESPONSE_STAGES: ApplicationStage[] = ["phone_screen", "interview", "offer", "closed"]
 const INTERVIEW_STAGES: ApplicationStage[] = ["interview", "offer", "closed"]
@@ -151,12 +150,6 @@ export function buildAnalyticsModel(args: {
       source: segment("Source", (application) => application.source ?? "Unspecified"),
       referral: segment("Referral", (application) => application.referralStatus ?? "Unspecified"),
       workArrangement: segment("Work arrangement", (application) => application.workArrangement ?? "Unspecified"),
-      quality: segment("Quality", (application) => {
-        const score = calculateQualityScore(application.qualityChecks)
-        if (score >= 80) return "80-100"
-        if (score >= 50) return "50-79"
-        return "0-49"
-      }),
       resume: segment("Resume", (application) =>
         application.currentResumeId
           ? resumeById.get(application.currentResumeId) ?? "Unknown resume"

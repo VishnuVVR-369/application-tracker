@@ -6,18 +6,14 @@ import { usePathname, useRouter } from "next/navigation"
 import { motion, useReducedMotion } from "motion/react"
 import {
   BarChart3,
-  BookOpenCheck,
   BriefcaseBusiness,
   CalendarClock,
   ChevronLeft,
-  FileText,
   Gauge,
+  LayoutGrid,
   LogOut,
   Menu,
   Settings,
-  Target,
-  Trophy,
-  Users,
 } from "lucide-react"
 
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -60,19 +56,13 @@ const navGroups: readonly NavGroup[] = [
   {
     label: "Search",
     items: [
-      { href: "/app/targets", label: "Targets", icon: Target },
       { href: "/app/applications", label: "Pipeline", icon: BriefcaseBusiness },
       { href: "/app/interviews", label: "Interviews", icon: CalendarClock },
     ],
   },
   {
-    label: "Toolkit",
-    items: [
-      { href: "/app/prep", label: "Prep", icon: BookOpenCheck },
-      { href: "/app/stories", label: "Stories", icon: Trophy },
-      { href: "/app/people", label: "People", icon: Users },
-      { href: "/app/documents", label: "Documents", icon: FileText },
-    ],
+    label: "More",
+    items: [{ href: "/app/workspace", label: "Workspace", icon: LayoutGrid }],
   },
   {
     label: "Review",
@@ -90,6 +80,21 @@ const navItemStaggerIndex = new Map<string, number>(
 )
 
 const EASE = [0.22, 1, 0.36, 1] as const
+const WORKSPACE_CHILD_ROUTES = new Set([
+  "/app/targets",
+  "/app/prep",
+  "/app/stories",
+  "/app/people",
+  "/app/documents",
+])
+
+function isNavItemActive(pathname: string, href: string) {
+  if (href === "/app") return pathname === href
+  if (href === "/app/workspace") {
+    return pathname.startsWith(href) || WORKSPACE_CHILD_ROUTES.has(pathname)
+  }
+  return pathname.startsWith(href)
+}
 
 /* ────────────────────────────────────────────────────────────────────────
    Persisted collapse state — a tiny external store so the rail remembers its
@@ -137,7 +142,9 @@ function useCollapsed() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { data, isLoading } = useAppData()
+  const detailApplicationId =
+    pathname.match(/^\/app\/applications\/([^/]+)/)?.[1]
+  const { data, isLoading } = useAppData("shell", detailApplicationId)
   const collapsed = useCollapsed()
   const reduce = useReducedMotion()
 
@@ -372,10 +379,7 @@ function NavLinks({
           )}
           {group.items.map((item) => {
             const index = navItemStaggerIndex.get(item.href) ?? 0
-            const active =
-              item.href === "/app"
-                ? pathname === item.href
-                : pathname.startsWith(item.href)
+            const active = isNavItemActive(pathname, item.href)
             const Icon = item.icon
 
             const link = (
@@ -630,6 +634,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   stories: "Stories",
   people: "People",
   documents: "Documents",
+  workspace: "Workspace",
   insights: "Insights",
   settings: "Settings",
   goals: "Goals",
@@ -642,7 +647,7 @@ function crumbs(
 ) {
   const parts = pathname.split("/").filter(Boolean)
   if (parts.length === 0) return ["Home"]
-  return parts.map((part, i) => {
+  const labels = parts.map((part, i) => {
     if (SEGMENT_LABELS[part]) return SEGMENT_LABELS[part]
     // The only unmapped segment we expect is an application's Convex _id at
     // the tail of /app/applications/[id] — resolve it to the company name.
@@ -652,4 +657,8 @@ function crumbs(
     }
     return part
   })
+  if (WORKSPACE_CHILD_ROUTES.has(pathname)) {
+    labels.splice(1, 0, "Workspace")
+  }
+  return labels
 }

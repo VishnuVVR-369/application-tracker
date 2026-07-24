@@ -79,12 +79,13 @@ function matches(item: CommandItem, query: string) {
 
 export function QuickActions({ variant = "full" }: { variant?: "full" | "compact" }) {
   const router = useRouter()
-  const { data } = useAppData()
   const [paletteOpen, setPaletteOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
   const [activeIndex, setActiveIndex] = React.useState(0)
   const [activeSheet, setActiveSheet] = React.useState<SheetKind | null>(null)
   const activeItemRef = React.useRef<HTMLButtonElement>(null)
+  const needsCommandData = paletteOpen || activeSheet !== null
+  const { data } = useAppData("command", undefined, needsCommandData)
 
   // Reset the query/selection whenever the palette closes so it reopens fresh.
   const onPaletteOpenChange = React.useCallback((open: boolean) => {

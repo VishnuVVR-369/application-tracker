@@ -72,7 +72,7 @@ const OUTREACH_STATUS_META: Record<
 }
 
 export function TargetCompaniesPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("targets")
   const updateCompany = useMutation(api.targets.updateCompany)
   const updateOutreach = useMutation(api.targets.updateOutreach)
 

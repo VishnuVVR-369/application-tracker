@@ -95,7 +95,7 @@ function greeting() {
 }
 
 export function TodayPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("today")
   const [now] = React.useState(() => Date.now())
   const updateApplication = useMutation(api.applications.update)
   const logFollowUp = useMutation(api.ghosting.logFollowUp)
@@ -304,7 +304,7 @@ export function TodayPage() {
           {ghosting.nudges.length > 0 && (
             <Lane icon={Ghost} title="Presumed ghosted" accent="status-down" count={ghosting.nudges.length}>
               <div className="grid gap-2">
-                {ghosting.nudges.slice(0, 5).map(({ application, daysSilent, level, daysUntilAutoClose }) => (
+                {ghosting.nudges.slice(0, 5).map(({ application, daysSilent, level }) => (
                   <div
                     key={application.id}
                     className={cn(
@@ -324,7 +324,7 @@ export function TodayPage() {
                       </Link>
                       <p className="mt-0.5 text-xs text-ink-500">
                         {daysSilent}d of silence
-                        {level === "strong" && ` · auto-closes in ${daysUntilAutoClose}d`}
+                        {level === "strong" && " · review recommended"}
                       </p>
                     </div>
                     <Badge variant={level === "strong" ? "danger" : "warn"} className="shrink-0 font-mono tabular">

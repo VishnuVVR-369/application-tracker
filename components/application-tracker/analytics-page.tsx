@@ -32,7 +32,6 @@ const DIMENSIONS = [
   { key: "source", label: "Source" },
   { key: "referral", label: "Referral" },
   { key: "workArrangement", label: "Arrangement" },
-  { key: "quality", label: "Quality" },
   { key: "resume", label: "Resume" },
 ] as const
 
@@ -114,7 +113,7 @@ export function AnalyticsPage() {
 }
 
 export function AnalyticsView() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("analytics")
   const [includeArchived, setIncludeArchived] = React.useState(false)
   const [includeClosed, setIncludeClosed] = React.useState(false)
   const [dimension, setDimension] = React.useState<DimensionKey>("source")

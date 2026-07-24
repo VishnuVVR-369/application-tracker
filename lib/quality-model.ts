@@ -54,17 +54,6 @@ export function getEnabledQualityItems(items: QualityChecklistItem[]) {
     .sort((a, b) => a.sortOrder - b.sortOrder)
 }
 
-export function normalizeQualityWeight(
-  item: Pick<QualityChecklistItem | QualityCheckSnapshot, "weight">,
-  totalWeight: number
-) {
-  if (totalWeight <= 0) {
-    return 0
-  }
-
-  return item.weight / totalWeight
-}
-
 export function createQualitySnapshot(
   items: QualityChecklistItem[],
   checkedKeys: string[] = []
@@ -79,22 +68,6 @@ export function createQualitySnapshot(
     sortOrder: item.sortOrder,
     checkedAt: checkedKeys.includes(item.key) ? Date.now() : undefined,
   }))
-}
-
-export function calculateQualityScore(checks: QualityCheckSnapshot[]) {
-  const enabled = checks.filter((check) => check.weight > 0)
-  const totalWeight = enabled.reduce((total, check) => total + check.weight, 0)
-
-  if (totalWeight <= 0) {
-    return 0
-  }
-
-  const checkedWeight = enabled.reduce(
-    (total, check) => total + (check.checked ? check.weight : 0),
-    0
-  )
-
-  return Math.round((checkedWeight / totalWeight) * 100)
 }
 
 export function updateQualitySnapshotCheck(

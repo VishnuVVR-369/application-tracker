@@ -128,7 +128,7 @@ export function GoalsPage() {
 }
 
 export function GoalsView() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("goals")
   const upsertGoal = useMutation(api.goals.upsert)
   const addWin = useMutation(api.goals.addWin)
   const [currentWeekKey] = React.useState(() => getWeekKey())

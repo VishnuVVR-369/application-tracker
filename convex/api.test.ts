@@ -315,7 +315,7 @@ describe("convex api", () => {
       usedAtDate: "2026-06-07",
     })
 
-    const snapshot = await authed.query(api.appData.get)
+    const snapshot = await authed.query(api.appData.get, {})
 
     expect(snapshot?.targetCompanies.map((target) => target._id)).toEqual([targetCompanyId])
     expect(snapshot?.targetCompanies[0].domain).toBe("metacloud.example")
@@ -325,6 +325,44 @@ describe("convex api", () => {
     expect(snapshot?.interviewPrepPlans[0]._id).toBe(prepPlanId)
     expect(snapshot?.storyBankEntries[0]._id).toBe(storyId)
     expect(snapshot?.storyUsages[0]._id).toBe(usageId)
+
+    const workspace = await authed.query(api.appData.get, { scope: "workspace" })
+    expect(workspace?.targetCompanies.map((target) => target._id)).toEqual([targetCompanyId])
+    expect(workspace?.interviewPrepPlans.map((plan) => plan._id)).toEqual([prepPlanId])
+    expect(workspace?.storyBankEntries.map((story) => story._id)).toEqual([storyId])
+    expect(workspace?.applications).toEqual([])
+    expect(workspace?.referralOutreach).toEqual([])
+    expect(workspace?.storyUsages).toEqual([])
+
+    const shell = await authed.query(api.appData.get, { scope: "shell" })
+    expect(shell?.applications).toEqual([])
+    expect(shell?.resumes).toEqual([])
+    expect(shell?.applicationContacts).toEqual([])
+
+    const focusedShell = await authed.query(api.appData.get, {
+      scope: "shell",
+      applicationId,
+    })
+    expect(focusedShell?.applications.map((application) => application._id)).toEqual([
+      applicationId,
+    ])
+
+    const prep = await authed.query(api.appData.get, { scope: "prep" })
+    expect(prep?.applications.map((application) => application._id)).toContain(applicationId)
+    expect(prep?.targetCompanies.map((target) => target._id)).toEqual([targetCompanyId])
+    expect(prep?.interviewPrepPlans.map((plan) => plan._id)).toEqual([prepPlanId])
+    expect(prep?.applicationContacts).toEqual([])
+
+    const command = await authed.query(api.appData.get, { scope: "command" })
+    expect(command?.applications.map((application) => application._id)).toContain(applicationId)
+    expect(command?.targetCompanies).toEqual([])
+    expect(command?.activityEvents).toEqual([])
+
+    const invalidDetail = await authed.query(api.appData.get, {
+      scope: "application-detail",
+      applicationId: "not-a-convex-id",
+    })
+    expect(invalidDetail?.applications).toEqual([])
 
     await authed.mutation(api.targets.updateCompany, {
       id: targetCompanyId,
@@ -353,7 +391,7 @@ describe("convex api", () => {
     })
     await authed.mutation(api.stories.updateStory, { id: storyId, archived: false })
 
-    const cleared = await authed.query(api.appData.get)
+    const cleared = await authed.query(api.appData.get, {})
     expect(cleared?.targetCompanies[0].website).toBeUndefined()
     expect(cleared?.targetCompanies[0].domain).toBeUndefined()
     expect(cleared?.targetCompanies[0].researchNotes).toBeUndefined()
@@ -368,5 +406,46 @@ describe("convex api", () => {
     expect(cleared?.interviewPrepPlans[0].nextAction).toBeUndefined()
     expect(cleared?.storyBankEntries[0].impactMetrics).toBeUndefined()
     expect(cleared?.storyBankEntries[0].archivedAt).toBeUndefined()
+  })
+
+  it("keeps focused application detail rows inside the current user's ownership boundary", async () => {
+    const t = convexTest({ schema, modules })
+    const authed = t.withIdentity(identity)
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    const applicationId = await authed.mutation(api.applications.create, {
+      companyName: "Owner Corp",
+      roleTitle: "Platform Engineer",
+      stage: "applied",
+    })
+
+    await t.run(async (ctx) => {
+      const now = Date.parse("2026-06-08T09:00:00.000Z")
+      const foreignUserId = await ctx.db.insert("users", {
+        authSubject: "provider|user-2",
+        tokenIdentifier: "provider:user-2",
+        email: "other@example.com",
+        normalizedEmail: "other@example.com",
+        createdAt: now,
+        updatedAt: now,
+      })
+      await ctx.db.insert("tasks", {
+        userId: foreignUserId,
+        applicationId,
+        kind: "general",
+        title: "Foreign task",
+        status: "pending",
+        source: "manual",
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+
+    const detail = await authed.query(api.appData.get, {
+      scope: "application-detail",
+      applicationId,
+    })
+
+    expect(detail?.applications.map((application) => application._id)).toEqual([applicationId])
+    expect(detail?.tasks).toEqual([])
   })
 })
