@@ -14,10 +14,14 @@ const MAX_INPUT_CHARS = 16_000
 // Explicit result type: annotating the action's return breaks the circular
 // type inference that otherwise degrades the generated `api` types to `any`.
 export type MatchAnalysisResult = {
-  score: number
   summary: string
   matchedKeywords: string[]
   missingKeywords: string[]
+  requirements: Array<{
+    requirement: string
+    evidence: string
+    status: "supported" | "partial" | "missing"
+  }>
   suggestions: string[]
   model: string
   analyzedAt: number
@@ -26,35 +30,53 @@ export type MatchAnalysisResult = {
 }
 
 const analysisSchema = z.object({
-  score: z.number().min(0).max(100),
   summary: z.string().min(1),
-  matchedKeywords: z.array(z.string()).max(30),
-  missingKeywords: z.array(z.string()).max(30),
+  requirements: z
+    .array(
+      z.object({
+        requirement: z.string().min(1),
+        evidence: z.string(),
+        status: z.enum(["supported", "partial", "missing"]),
+      })
+    )
+    .min(1)
+    .max(20),
   suggestions: z.array(z.string()).min(1).max(8),
 })
 
 const responseJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["score", "summary", "matchedKeywords", "missingKeywords", "suggestions"],
+  required: ["summary", "requirements", "suggestions"],
   properties: {
-    score: {
-      type: "integer",
-      description: "0-100 fit between this resume and this job description.",
-    },
     summary: {
       type: "string",
       description: "Two or three sentences on overall fit and the biggest gap.",
     },
-    matchedKeywords: {
+    requirements: {
       type: "array",
-      items: { type: "string" },
-      description: "Important JD skills/requirements the resume clearly evidences.",
-    },
-    missingKeywords: {
-      type: "array",
-      items: { type: "string" },
-      description: "Important JD skills/requirements the resume does not mention.",
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requirement", "evidence", "status"],
+        properties: {
+          requirement: {
+            type: "string",
+            description: "A specific important requirement from the job description.",
+          },
+          evidence: {
+            type: "string",
+            description:
+              "Concise evidence from the resume. Use an empty string when no evidence exists.",
+          },
+          status: {
+            type: "string",
+            enum: ["supported", "partial", "missing"],
+          },
+        },
+      },
+      description: "Requirement-by-requirement evidence assessment.",
     },
     suggestions: {
       type: "array",
@@ -84,7 +106,7 @@ async function callOpenAi(args: {
         {
           role: "system",
           content:
-            "You are an expert technical recruiter and resume coach. Compare a candidate's resume against a job description the way an ATS keyword screen plus a human recruiter would. Be specific and honest: only list a keyword as matched when the resume genuinely evidences it, and make every suggestion actionable for this exact posting.",
+            "You are an expert technical recruiter and resume coach. Compare a candidate's resume against a job description without inventing a numerical fit score. For each important requirement, show the concrete resume evidence or clearly say it is missing. Keep evidence concise and grounded in the supplied text, and make every suggestion actionable for this exact posting.",
         },
         {
           role: "user",
@@ -173,16 +195,22 @@ export const analyze = action({
       jobDescription: context.jobDescription.slice(0, MAX_INPUT_CHARS),
       resumeText: resumeText.slice(0, MAX_INPUT_CHARS),
     })
+    const matchedKeywords = analysis.requirements
+      .filter((item) => item.status === "supported")
+      .map((item) => item.requirement)
+    const missingKeywords = analysis.requirements
+      .filter((item) => item.status === "missing")
+      .map((item) => item.requirement)
 
     return await ctx.runMutation(internal.matchAnalysisData.saveResult, {
       applicationId: args.applicationId,
       resumeId: context.resume.id,
       resumeLabel: context.resume.label,
       model,
-      score: Math.round(analysis.score),
       summary: analysis.summary,
-      matchedKeywords: analysis.matchedKeywords,
-      missingKeywords: analysis.missingKeywords,
+      matchedKeywords,
+      missingKeywords,
+      requirements: analysis.requirements,
       suggestions: analysis.suggestions,
     })
   },

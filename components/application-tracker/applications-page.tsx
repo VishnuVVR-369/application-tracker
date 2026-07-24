@@ -9,6 +9,7 @@ import {
   ArrowDown,
   ArrowUp,
   CalendarClock,
+  CheckCircle2,
   ChevronsUpDown,
   FileText,
   LayoutGrid,
@@ -48,7 +49,6 @@ import {
 } from "@/lib/application-model"
 import { formatShortDate } from "@/lib/date-model"
 import { getInterviewStart } from "@/lib/interview-model"
-import { calculateQualityScore } from "@/lib/quality-model"
 import { cn } from "@/lib/utils"
 import { ApplicationFormSheet } from "./application-form-sheet"
 import {
@@ -72,24 +72,33 @@ const stageDot: Record<ApplicationStage, string> = {
   closed: "bg-stage-closed",
 }
 
-type SortKey = "company" | "role" | "stage" | "source" | "referral" | "applied" | "deadline" | "quality"
+type SortKey = "company" | "role" | "stage" | "source" | "referral" | "applied" | "deadline" | "checks"
 type SortState = { key: SortKey; dir: "asc" | "desc" }
-const DESC_FIRST: SortKey[] = ["applied", "deadline", "quality"]
+const DESC_FIRST: SortKey[] = ["applied", "deadline", "checks"]
 
-function QualityMeter({ score }: { score: number }) {
+function checklistCompletion(application: ApplicationRecord) {
+  const total = application.qualityChecks.length
+  const complete = application.qualityChecks.filter((check) => check.checked).length
+  return { complete, total, ratio: total > 0 ? complete / total : 0 }
+}
+
+function ChecklistMeter({ application }: { application: ApplicationRecord }) {
+  const { complete, total } = checklistCompletion(application)
   const tone =
-    score >= 75 ? "text-status-up" : score >= 45 ? "text-status-warn" : "text-status-down"
+    total > 0 && complete === total
+      ? "text-status-up"
+      : complete > 0
+        ? "text-status-warn"
+        : "text-ink-500"
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span className={cn("inline-flex items-center gap-1.5 font-mono text-xs tabular", tone)}>
-          <span className="h-1 w-8 overflow-hidden rounded-full bg-surface-3">
-            <span className="block h-full rounded-full bg-current" style={{ width: `${score}%` }} />
-          </span>
-          {score}
+          <CheckCircle2 className="size-3.5" />
+          {complete}/{total}
         </span>
       </TooltipTrigger>
-      <TooltipContent>Quality score {score}/100</TooltipContent>
+      <TooltipContent>{complete} of {total} application checks complete</TooltipContent>
     </Tooltip>
   )
 }
@@ -102,7 +111,7 @@ function applicationDeadline(application: ApplicationRecord) {
   )
 }
 
-type Row = { app: ApplicationRecord; score: number; deadline?: string }
+type Row = { app: ApplicationRecord; checklistRatio: number; deadline?: string }
 
 function compareRows(a: Row, b: Row, key: SortKey): number {
   switch (key) {
@@ -124,8 +133,8 @@ function compareRows(a: Row, b: Row, key: SortKey): number {
       return (a.app.dateAppliedDate ?? "").localeCompare(b.app.dateAppliedDate ?? "")
     case "deadline":
       return (a.deadline ?? "").localeCompare(b.deadline ?? "")
-    case "quality":
-      return a.score - b.score
+    case "checks":
+      return a.checklistRatio - b.checklistRatio
   }
 }
 
@@ -167,7 +176,7 @@ function SortableHead({
 }
 
 export function ApplicationsPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("pipeline")
   const moveStage = useMutation(api.applications.moveStage)
   const searchParams = useSearchParams()
   const reduce = useReducedMotion()
@@ -237,7 +246,7 @@ export function ApplicationsPage() {
 
   const rows: Row[] = applications.map((application) => ({
     app: application,
-    score: calculateQualityScore(application.qualityChecks),
+    checklistRatio: checklistCompletion(application).ratio,
     deadline: applicationDeadline(application),
   }))
   const sortedRows = sort
@@ -426,7 +435,6 @@ export function ApplicationsPage() {
                     <div className="flex flex-1 flex-col gap-2 p-2">
                       <AnimatePresence mode="popLayout" initial={false}>
                         {columnApplications.map((application) => {
-                          const score = calculateQualityScore(application.qualityChecks)
                           const deadline = applicationDeadline(application)
                           const dragging = draggedId === application.id
                           return (
@@ -455,7 +463,7 @@ export function ApplicationsPage() {
                                   {application.roleTitle}
                                 </h3>
                                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                                  <QualityMeter score={score} />
+                                  <ChecklistMeter application={application} />
                                   {application.currentResumeId && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -544,11 +552,11 @@ export function ApplicationsPage() {
                     <SortableHead column="applied" label="Applied" sort={sort} onSort={toggleSort} />
                     <SortableHead column="deadline" label="Deadline" sort={sort} onSort={toggleSort} />
                     <TableHead className="h-9 px-4 text-xs font-medium text-ink-500">Next</TableHead>
-                    <SortableHead column="quality" label="Quality" sort={sort} onSort={toggleSort} />
+                    <SortableHead column="checks" label="Checks" sort={sort} onSort={toggleSort} />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedRows.map(({ app: application, score, deadline }) => (
+                  {sortedRows.map(({ app: application, deadline }) => (
                     <TableRow key={application.id} className="group hover:bg-surface-3/60">
                       <TableCell className="px-4 py-2.5">
                         <Link
@@ -586,7 +594,7 @@ export function ApplicationsPage() {
                         )}
                       </TableCell>
                       <TableCell className="px-4 py-2.5">
-                        <QualityMeter score={score} />
+                        <ChecklistMeter application={application} />
                       </TableCell>
                     </TableRow>
                   ))}

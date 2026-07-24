@@ -9,7 +9,7 @@ A job-search command center, not just a spreadsheet replacement. Track applicati
 - **Interviews & Prep** — schedule interviews and prep story-bank material (behavioral stories, talking points) ahead of them.
 - **People** — contacts and referral relationships tied back to applications and companies.
 - **Documents** — resume storage with AI-powered resume/job-description match analysis.
-- **Ghosting engine** — flags applications that have gone quiet and auto-closes/nudges follow-ups based on inactivity.
+- **Ghosting assistant** — flags applications that have gone quiet and suggests follow-ups without changing their stage automatically.
 - **Insights & Analytics** — funnel conversion, effort-to-outcome (ROI), and other stats across your search.
 - **Goals** — weekly/period targets for applications, outreach, and interviews.
 

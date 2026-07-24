@@ -4,7 +4,6 @@ import type { ApplicationRecord } from "@/lib/application-model"
 import {
   buildGhostingModel,
   getDaysSilent,
-  shouldAutoCloseAsGhosted,
 } from "@/lib/ghosting-model"
 
 const DAY = 24 * 60 * 60 * 1000
@@ -39,7 +38,6 @@ describe("ghosting-model", () => {
 
     expect(nudges.map((item) => item.application.id)).toEqual(["strong", "nudge"])
     expect(nudges[0].level).toBe("strong")
-    expect(nudges[0].daysUntilAutoClose).toBe(10)
     expect(nudges[1].level).toBe("nudge")
   })
 
@@ -66,16 +64,12 @@ describe("ghosting-model", () => {
     expect(nudges.map((item) => item.application.id)).toEqual(["expired"])
   })
 
-  it("auto-closes only past 45 days of silence, respecting snooze", () => {
-    const at44 = makeApp({ lastActivityAt: NOW.getTime() - 44 * DAY })
-    const at45 = makeApp({ lastActivityAt: NOW.getTime() - 45 * DAY })
-    const at45Snoozed = makeApp({
-      lastActivityAt: NOW.getTime() - 45 * DAY,
-      ghostNudgeSnoozedUntilDate: "2026-07-08",
-    })
+  it("keeps very stale applications as reminders without changing their stage", () => {
+    const silent = makeApp({ lastActivityAt: NOW.getTime() - 60 * DAY })
+    const { nudges } = buildGhostingModel({ applications: [silent], now: NOW })
 
-    expect(shouldAutoCloseAsGhosted(at44, NOW)).toBe(false)
-    expect(shouldAutoCloseAsGhosted(at45, NOW)).toBe(true)
-    expect(shouldAutoCloseAsGhosted(at45Snoozed, NOW)).toBe(false)
+    expect(nudges).toHaveLength(1)
+    expect(nudges[0].level).toBe("strong")
+    expect(nudges[0].application.stage).toBe("applied")
   })
 })

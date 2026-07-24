@@ -269,10 +269,23 @@ const resumeSnapshot = v.object({
 })
 
 export const matchAnalysisSnapshot = v.object({
-  score: v.number(),
+  score: v.optional(v.number()),
   summary: v.string(),
   matchedKeywords: v.array(v.string()),
   missingKeywords: v.array(v.string()),
+  requirements: v.optional(
+    v.array(
+      v.object({
+        requirement: v.string(),
+        evidence: v.string(),
+        status: v.union(
+          v.literal("supported"),
+          v.literal("partial"),
+          v.literal("missing")
+        ),
+      })
+    )
+  ),
   suggestions: v.array(v.string()),
   model: v.string(),
   analyzedAt: v.number(),
@@ -397,6 +410,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_applicationId", ["userId", "applicationId"])
     .index("by_applicationId_and_enteredAt", ["applicationId", "enteredAt"])
     .index("by_userId_and_stage", ["userId", "stage"])
     .index("by_userId_and_enteredAt", ["userId", "enteredAt"])
@@ -422,6 +436,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_applicationId", ["userId", "applicationId"])
     .index("by_userId_and_eventAt", ["userId", "eventAt"])
     .index("by_applicationId_and_eventAt", ["applicationId", "eventAt"])
     .index("by_userId_and_relatedEntity", ["userId", "relatedEntityType", "relatedEntityId"])
@@ -447,6 +462,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_applicationId", ["userId", "applicationId"])
     .index("by_userId_and_relationshipType", ["userId", "relationshipType"])
     .index("by_userId_and_normalizedEmail", ["userId", "normalizedEmail"])
     .index("by_userId_and_archived", ["userId", "archived"]),
@@ -477,6 +493,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_applicationId", ["userId", "applicationId"])
     .index("by_userId_and_status", ["userId", "status"])
     .index("by_userId_and_scheduledAt", ["userId", "scheduledAt"])
     .index("by_userId_and_scheduledDate", ["userId", "scheduledDate"])
@@ -511,6 +528,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_applicationId", ["userId", "applicationId"])
     .index("by_applicationId_and_versionNumber", ["applicationId", "versionNumber"])
     .index("by_userId_and_decision", ["userId", "decision"])
     .index("by_userId_and_responseDeadlineDate", ["userId", "responseDeadlineDate"])
@@ -550,6 +568,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_applicationId", ["userId", "applicationId"])
     .index("by_userId_and_resumeId", ["userId", "resumeId"])
     .index("by_userId_and_applicationId_and_isCurrent", [
       "userId",
@@ -723,6 +742,7 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_applicationId", ["applicationId"])
+    .index("by_userId_and_applicationId", ["userId", "applicationId"])
     .index("by_relatedInterviewId", ["relatedInterviewId"])
     .index("by_relatedOfferId", ["relatedOfferId"])
     .index("by_userId_and_status", ["userId", "status"])

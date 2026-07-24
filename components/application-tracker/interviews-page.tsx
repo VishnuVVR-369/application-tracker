@@ -77,7 +77,7 @@ const resultBadgeVariant: Record<string, "success" | "danger" | "warn" | "outlin
 }
 
 export function InterviewsPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("interviews")
   const searchParams = useSearchParams()
   const [selectedId, setSelectedId] = React.useState<string | null>(() => searchParams.get("focus"))
   const [editing, setEditing] = React.useState<Doc<"applicationInterviews"> | null>(null)

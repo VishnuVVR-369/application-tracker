@@ -36,7 +36,7 @@ const THEMES = [
 ] as const
 
 export function SettingsPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("settings")
   const exportPayload = useQuery(api.exportData.all, data ? {} : "skip")
   const updateSettings = useMutation(api.users.updateSettings)
   const updateQualityItem = useMutation(api.quality.updateItem)
@@ -44,7 +44,6 @@ export function SettingsPage() {
   const reorderQualityItem = useMutation(api.quality.reorderItem)
   const { setTheme } = useTheme()
   const [newLabel, setNewLabel] = React.useState("")
-  const [newWeight, setNewWeight] = React.useState("10")
 
   if (isLoading) {
     return <PageSkeleton columns="1fr 1fr" panels={2} />
@@ -69,14 +68,13 @@ export function SettingsPage() {
   async function addItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!newLabel.trim()) return
-    await addQualityItem({ label: newLabel, weight: Number(newWeight) || 1 })
+    await addQualityItem({ label: newLabel, weight: 1 })
     setNewLabel("")
-    setNewWeight("10")
   }
 
   function downloadExport() {
-    const payload = exportPayload ?? data
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+    if (!exportPayload) return
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement("a")
     anchor.href = url
@@ -93,7 +91,7 @@ export function SettingsPage() {
     <>
       <PageHeader
         eyebrow="Settings"
-        title="Profile, appearance, quality defaults, and export"
+        title="Profile, appearance, application checks, and export"
         description="Settings and checklist defaults are stored in Convex and applied to new applications."
       />
 
@@ -151,17 +149,19 @@ export function SettingsPage() {
               Export applications, resume metadata, tasks, activity, goals, wins, settings, and quality
               defaults as a single JSON file.
             </p>
-            <Button onClick={downloadExport} className="w-fit shrink-0">
+            <Button onClick={downloadExport} disabled={!exportPayload} className="w-fit shrink-0">
               <Download className="size-4" />
               Download JSON
             </Button>
           </div>
         </Panel>
 
-        <Panel title="Quality checklist defaults" icon={ListChecks} className="xl:col-span-2">
-          <form onSubmit={addItem} className="mb-4 grid gap-2 border-b border-line/70 pb-4 sm:grid-cols-[1fr_120px_auto]">
+        <Panel title="Application checklist defaults" icon={ListChecks} className="xl:col-span-2">
+          <p className="mb-4 text-sm text-ink-300">
+            These are concrete checks, not a weighted score. Applications show how many are complete.
+          </p>
+          <form onSubmit={addItem} className="mb-4 grid gap-2 border-b border-line/70 pb-4 sm:grid-cols-[1fr_auto]">
             <Input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Custom checklist item" />
-            <Input type="number" min={1} value={newWeight} onChange={(event) => setNewWeight(event.target.value)} placeholder="Weight" />
             <Button type="submit" variant="secondary">
               <Plus className="size-4" />
               Add item
@@ -172,7 +172,7 @@ export function SettingsPage() {
               <div
                 key={item._id}
                 className={cn(
-                  "grid items-start gap-3 rounded-xl border border-line bg-surface-1/60 p-3 transition-opacity lg:grid-cols-[auto_auto_1fr_96px_auto] lg:items-center",
+                  "grid items-start gap-3 rounded-xl border border-line bg-surface-1/60 p-3 transition-opacity lg:grid-cols-[auto_auto_1fr_auto] lg:items-center",
                   !item.enabled && "opacity-60"
                 )}
               >
@@ -193,15 +193,6 @@ export function SettingsPage() {
                     value={item.description ?? ""}
                     onChange={(event) => void updateQualityItem({ id: item._id, description: event.target.value })}
                     placeholder="Optional description"
-                  />
-                </div>
-                <div className="grid gap-1">
-                  <span className="micro-label">Weight</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={item.weight}
-                    onChange={(event) => void updateQualityItem({ id: item._id, weight: Number(event.target.value) || 1 })}
                   />
                 </div>
                 <div className="flex gap-1">

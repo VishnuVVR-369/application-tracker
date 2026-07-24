@@ -52,7 +52,7 @@ const relationshipTone: Record<ContactRelationship, string> = {
 }
 
 export function PeoplePage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("people")
   const removeContact = useMutation(api.contacts.remove)
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<ContactRelationship | "all">("all")

@@ -76,7 +76,6 @@ import {
   REJECTION_REASON_LABELS,
   REJECTION_STAGE_LABELS,
 } from "@/lib/rejection-model"
-import { calculateQualityScore } from "@/lib/quality-model"
 import { cn } from "@/lib/utils"
 import { ApplicationFormSheet } from "./application-form-sheet"
 import { ContactFormSheet } from "./contact-form-sheet"
@@ -122,7 +121,7 @@ const resultBadge: Record<string, "success" | "danger" | "warn" | "outline"> = {
 }
 
 export function ApplicationDetailPage({ id }: { id: string }) {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("application-detail", id)
   const searchParams = useSearchParams()
   const updateApplication = useMutation(api.applications.update)
   const moveStage = useMutation(api.applications.moveStage)
@@ -184,8 +183,18 @@ export function ApplicationDetailPage({ id }: { id: string }) {
     .map(mapStageHistory)
     .sort((a, b) => a.enteredAt - b.enteredAt)
 
-  const qualityScore = calculateQualityScore(application.qualityChecks)
   const checkedCount = application.qualityChecks.filter((check) => check.checked).length
+  const checklistTotal = application.qualityChecks.length
+  const checklistProgress =
+    checklistTotal > 0 ? Math.round((checkedCount / checklistTotal) * 100) : 0
+  const checklistStatus =
+    checklistTotal === 0
+      ? "No checklist"
+      : checkedCount === checklistTotal
+        ? "All checks complete"
+        : checkedCount === 0
+          ? "Not reviewed"
+          : `${checklistTotal - checkedCount} remaining`
   const nextInterview = interviews
     .filter((interview) => (interview.status === "scheduled" || interview.status === "rescheduled") && (getInterviewStart(interview) ?? 0) >= now)
     .sort((a, b) => (getInterviewStart(a) ?? 0) - (getInterviewStart(b) ?? 0))[0]
@@ -230,8 +239,8 @@ export function ApplicationDetailPage({ id }: { id: string }) {
                 <StageBadge stage={application.stage} />
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface-1/60 px-2 py-0.5 text-xs">
                   <Award className="size-3 text-brand" />
-                  <span className="font-mono tabular">{qualityScore}</span>
-                  <span className="text-ink-500">quality</span>
+                  <span className="font-mono tabular">{checkedCount}/{checklistTotal}</span>
+                  <span className="text-ink-500">checks</span>
                 </span>
                 {application.workArrangement && (
                   <Badge variant="outline" className="gap-1.5">
@@ -367,16 +376,18 @@ export function ApplicationDetailPage({ id }: { id: string }) {
             </div>
 
             <div className="grid content-start gap-4">
-              <Panel title="Application quality" icon={Award}>
+              <Panel title="Application checklist" icon={Award}>
                 <div className="flex items-center gap-4">
-                  <QualityRing score={qualityScore} />
+                  <span className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-brand/25 bg-brand-weak text-brand shadow-glow">
+                    <CheckCircle2 className="size-6" />
+                  </span>
                   <div>
-                    <p className="text-sm font-medium">
-                      {checkedCount} of {application.qualityChecks.length} checks
+                    <p className="text-sm font-medium">{checklistStatus}</p>
+                    <p className="mt-0.5 text-xs text-ink-500">
+                      {checkedCount} of {checklistTotal} concrete checks complete
                     </p>
-                    <p className="mt-0.5 text-xs text-ink-500">Weighted 0–100 score</p>
                     <div className="mt-2 w-40">
-                      <ProgressBar value={qualityScore} />
+                      <ProgressBar value={checklistProgress} />
                     </div>
                   </div>
                 </div>
@@ -837,7 +848,7 @@ function MatchPanel({
       {!analysis ? (
         <p className="text-sm leading-relaxed text-ink-300">
           {canAnalyze
-            ? "Run an AI comparison of the linked resume against the saved job description: fit score, missing keywords, and tailoring suggestions."
+            ? "Compare the linked resume with the saved job description to see requirement-by-requirement evidence, gaps, and tailoring suggestions."
             : [
                 "To analyze, this application needs",
                 [!hasJd && "a job description snapshot", !hasResume && "a linked resume"]
@@ -848,8 +859,10 @@ function MatchPanel({
         </p>
       ) : (
         <div className="grid gap-3.5">
-          <div className="flex items-center gap-4">
-            <MatchRing score={analysis.score} />
+          <div className="flex items-start gap-3 rounded-lg border border-line bg-surface-1/60 p-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-brand/25 bg-brand-weak text-brand">
+              <Sparkles className="size-4" />
+            </span>
             <p className="text-sm leading-relaxed text-ink-300">{analysis.summary}</p>
           </div>
 
@@ -859,7 +872,38 @@ function MatchPanel({
             </p>
           )}
 
-          {analysis.missingKeywords.length > 0 && (
+          {analysis.requirements && analysis.requirements.length > 0 ? (
+            <div>
+              <p className="micro-label mb-2">Evidence by requirement</p>
+              <div className="grid gap-2">
+                {analysis.requirements.map((item) => (
+                  <div
+                    key={`${item.requirement}-${item.status}`}
+                    className="grid gap-1.5 rounded-lg border border-line bg-surface-1/40 p-3 sm:grid-cols-[auto_1fr] sm:gap-x-3"
+                  >
+                    <Badge
+                      variant={
+                        item.status === "supported"
+                          ? "success"
+                          : item.status === "partial"
+                            ? "warn"
+                            : "danger"
+                      }
+                      className="capitalize"
+                    >
+                      {item.status}
+                    </Badge>
+                    <div>
+                      <p className="text-sm font-medium">{item.requirement}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-ink-500">
+                        {item.evidence || "No evidence found in the linked resume."}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : analysis.missingKeywords.length > 0 ? (
             <div>
               <p className="micro-label mb-1.5">Missing from the resume</p>
               <div className="flex flex-wrap gap-1.5">
@@ -870,7 +914,7 @@ function MatchPanel({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
           {analysis.suggestions.length > 0 && (
             <div>
@@ -884,36 +928,12 @@ function MatchPanel({
           )}
 
           <p className="border-t border-line/70 pt-2.5 text-[11px] text-ink-500">
-            {analysis.matchedKeywords.length} keywords matched · vs “{analysis.resumeLabel}” ·{" "}
+            Evidence review against “{analysis.resumeLabel}” ·{" "}
             {analysis.model} · {formatShortDate(analysis.analyzedAt)}
           </p>
         </div>
       )}
     </Panel>
-  )
-}
-
-function MatchRing({ score }: { score: number }) {
-  const tone =
-    score >= 70 ? "var(--status-up)" : score >= 40 ? "var(--status-warn)" : "var(--status-down)"
-  return (
-    <div className="relative flex size-20 shrink-0 items-center justify-center">
-      <svg viewBox="0 0 36 36" className="size-20 -rotate-90">
-        <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" strokeWidth="3" />
-        <circle
-          cx="18"
-          cy="18"
-          r="15.5"
-          fill="none"
-          stroke={tone}
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray={`${(score / 100) * 97.4} 97.4`}
-          style={{ filter: `drop-shadow(0 0 4px color-mix(in oklch, ${tone} 60%, transparent))` }}
-        />
-      </svg>
-      <span className="absolute font-mono text-lg font-semibold tabular">{score}</span>
-    </div>
   )
 }
 
@@ -940,28 +960,6 @@ function MiniFact({ label, value }: { label: string; value: string }) {
     <div>
       <p className="micro-label">{label}</p>
       <p className="mt-0.5 font-mono text-sm tabular">{value}</p>
-    </div>
-  )
-}
-
-function QualityRing({ score }: { score: number }) {
-  return (
-    <div className="relative flex size-20 shrink-0 items-center justify-center">
-      <svg viewBox="0 0 36 36" className="size-20 -rotate-90">
-        <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" strokeWidth="3" />
-        <circle
-          cx="18"
-          cy="18"
-          r="15.5"
-          fill="none"
-          stroke="var(--brand)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray={`${(score / 100) * 97.4} 97.4`}
-          style={{ filter: "drop-shadow(0 0 4px color-mix(in oklch, var(--brand) 60%, transparent))" }}
-        />
-      </svg>
-      <span className="absolute font-mono text-lg font-semibold tabular">{score}</span>
     </div>
   )
 }

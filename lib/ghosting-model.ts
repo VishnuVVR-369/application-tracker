@@ -3,7 +3,6 @@ import { dateValueToDate } from "@/lib/date-model"
 
 export const GHOST_NUDGE_AFTER_DAYS = 14
 export const GHOST_STRONG_NUDGE_AFTER_DAYS = 30
-export const GHOST_AUTO_CLOSE_AFTER_DAYS = 45
 export const GHOST_SNOOZE_DAYS = 7
 
 export type GhostNudgeLevel = "nudge" | "strong"
@@ -12,12 +11,11 @@ export type GhostNudge = {
   application: ApplicationRecord
   daysSilent: number
   level: GhostNudgeLevel
-  daysUntilAutoClose: number
 }
 
 /**
  * Structural subset shared by lib ApplicationRecord and Convex application
- * docs, so the server-side auto-close sweep can reuse these predicates.
+ * docs, so every surface uses the same non-destructive reminder rules.
  */
 export type GhostableFields = Pick<
   ApplicationRecord,
@@ -77,20 +75,10 @@ export function buildGhostingModel(args: {
             daysSilent >= GHOST_STRONG_NUDGE_AFTER_DAYS
               ? ("strong" as const)
               : ("nudge" as const),
-          daysUntilAutoClose: Math.max(0, GHOST_AUTO_CLOSE_AFTER_DAYS - daysSilent),
         },
       ]
     })
     .sort((a, b) => b.daysSilent - a.daysSilent)
 
   return { nudges }
-}
-
-/** Whether the daily sweep should close this application as ghosted. */
-export function shouldAutoCloseAsGhosted(application: GhostableFields, now: Date) {
-  return (
-    isGhostable(application) &&
-    !isSnoozed(application, now) &&
-    getDaysSilent(application, now) >= GHOST_AUTO_CLOSE_AFTER_DAYS
-  )
 }

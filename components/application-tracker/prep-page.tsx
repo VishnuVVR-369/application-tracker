@@ -32,7 +32,7 @@ import { mapApplication, mapInterviewPrepPlan, mapTargetCompany } from "./data-m
 import { useAppData } from "./use-app-data"
 
 export function PrepPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("prep")
   const updatePlan = useMutation(api.prep.updatePlan)
   const [editingPlanId, setEditingPlanId] = React.useState<string | null>(null)
   const [editingNextActionId, setEditingNextActionId] = React.useState<string | null>(null)

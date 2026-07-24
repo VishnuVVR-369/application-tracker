@@ -45,10 +45,20 @@ export const saveResult = internalMutation({
     resumeId: v.id("resumes"),
     resumeLabel: v.string(),
     model: v.string(),
-    score: v.number(),
     summary: v.string(),
     matchedKeywords: v.array(v.string()),
     missingKeywords: v.array(v.string()),
+    requirements: v.array(
+      v.object({
+        requirement: v.string(),
+        evidence: v.string(),
+        status: v.union(
+          v.literal("supported"),
+          v.literal("partial"),
+          v.literal("missing")
+        ),
+      })
+    ),
     suggestions: v.array(v.string()),
   },
   handler: async (ctx, args) => {
@@ -60,10 +70,10 @@ export const saveResult = internalMutation({
 
     const now = Date.now()
     const matchAnalysis = {
-      score: args.score,
       summary: args.summary,
       matchedKeywords: args.matchedKeywords,
       missingKeywords: args.missingKeywords,
+      requirements: args.requirements,
       suggestions: args.suggestions,
       model: args.model,
       analyzedAt: now,
@@ -80,7 +90,7 @@ export const saveResult = internalMutation({
       userId: user._id,
       applicationId: args.applicationId,
       type: "note",
-      title: `Resume match analyzed — score ${args.score}`,
+      title: "Resume evidence analysis updated",
       eventAt: now,
       relatedEntityType: "resume",
       relatedEntityId: String(args.resumeId),

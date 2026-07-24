@@ -186,10 +186,16 @@ export const OFFER_DECISION_LABELS: Record<OfferDecision, string> = {
 }
 
 export type MatchAnalysis = {
-  score: number
+  /** Legacy analyses may retain a score; new analyses intentionally omit it. */
+  score?: number
   summary: string
   matchedKeywords: string[]
   missingKeywords: string[]
+  requirements?: Array<{
+    requirement: string
+    evidence: string
+    status: "supported" | "partial" | "missing"
+  }>
   suggestions: string[]
   model: string
   analyzedAt: number

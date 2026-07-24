@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  calculateQualityScore,
   createQualitySnapshot,
   seedQualityChecklist,
+  updateQualitySnapshotCheck,
 } from "@/lib/quality-model"
 
 describe("quality-model", () => {
@@ -11,20 +11,22 @@ describe("quality-model", () => {
     expect(seedQualityChecklist()).toHaveLength(5)
   })
 
-  it("normalizes enabled weights into a 0-100 score", () => {
+  it("creates a factual snapshot of completed checks", () => {
     const snapshot = createQualitySnapshot(seedQualityChecklist(), [
       "role-fit",
       "tailored-resume",
     ])
-    expect(calculateQualityScore(snapshot)).toBe(50)
+    expect(snapshot.filter((check) => check.checked).map((check) => check.key)).toEqual([
+      "role-fit",
+      "tailored-resume",
+    ])
   })
 
-  it("keeps disabled or zero-weight edge cases bounded", () => {
-    expect(calculateQualityScore([])).toBe(0)
-    expect(
-      calculateQualityScore([
-        { key: "x", label: "x", checked: true, weight: 0, source: "custom", sortOrder: 0 },
-      ])
-    ).toBe(0)
+  it("updates a single checklist item without deriving a score", () => {
+    const snapshot = createQualitySnapshot(seedQualityChecklist())
+    const updated = updateQualitySnapshotCheck(snapshot, "role-fit", true)
+
+    expect(updated.find((check) => check.key === "role-fit")?.checked).toBe(true)
+    expect(updated.filter((check) => check.checked)).toHaveLength(1)
   })
 })

@@ -18,7 +18,7 @@ import { PageSkeleton } from "./skeletons"
 import { useAppData } from "./use-app-data"
 
 export function DocumentsPage() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("documents")
   const generateUploadUrl = useMutation(api.resumes.generateUploadUrl)
   const createResume = useMutation(api.resumes.create)
   const updateResume = useMutation(api.resumes.update)

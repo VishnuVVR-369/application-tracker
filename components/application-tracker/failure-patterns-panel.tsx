@@ -16,7 +16,7 @@ import {
 import { useAppData } from "./use-app-data"
 
 export function FailurePatternsPanel() {
-  const { data, isLoading } = useAppData()
+  const { data, isLoading } = useAppData("failure")
   if (isLoading)
     return (
       <div className="grid gap-4">
