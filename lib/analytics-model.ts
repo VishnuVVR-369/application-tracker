@@ -150,6 +150,14 @@ export function buildAnalyticsModel(args: {
       source: segment("Source", (application) => application.source ?? "Unspecified"),
       referral: segment("Referral", (application) => application.referralStatus ?? "Unspecified"),
       workArrangement: segment("Work arrangement", (application) => application.workArrangement ?? "Unspecified"),
+      checklist: segment("Checklist", (application) => {
+        const total = application.qualityChecks.length
+        if (total === 0) return "No checklist"
+        const checked = application.qualityChecks.filter((check) => check.checked).length
+        if (checked === 0) return "Not started"
+        if (checked === total) return "Complete"
+        return "In progress"
+      }),
       resume: segment("Resume", (application) =>
         application.currentResumeId
           ? resumeById.get(application.currentResumeId) ?? "Unknown resume"

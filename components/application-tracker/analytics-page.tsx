@@ -32,6 +32,7 @@ const DIMENSIONS = [
   { key: "source", label: "Source" },
   { key: "referral", label: "Referral" },
   { key: "workArrangement", label: "Arrangement" },
+  { key: "checklist", label: "Checklist" },
   { key: "resume", label: "Resume" },
 ] as const
 

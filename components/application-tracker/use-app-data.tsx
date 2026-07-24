@@ -4,6 +4,7 @@ import * as React from "react"
 import { useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
+import type { AppDataScope } from "@/convex/appData"
 import { normalizeAppData } from "@/lib/app-data-model"
 import { authClient } from "@/lib/auth-client"
 
@@ -12,24 +13,7 @@ type EnsureState = {
   status: "idle" | "pending" | "done" | "failed"
 }
 
-export type AppDataScope =
-  | "full"
-  | "shell"
-  | "command"
-  | "today"
-  | "pipeline"
-  | "interviews"
-  | "targets"
-  | "prep"
-  | "stories"
-  | "people"
-  | "documents"
-  | "analytics"
-  | "goals"
-  | "failure"
-  | "settings"
-  | "workspace"
-  | "application-detail"
+export type { AppDataScope }
 
 export function useAppData(
   scope: AppDataScope = "full",

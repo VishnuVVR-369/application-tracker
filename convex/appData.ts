@@ -1,4 +1,4 @@
-import { v } from "convex/values"
+import { v, type Infer } from "convex/values"
 
 import { query } from "./_generated/server"
 import { getCurrentUserDocOrNull } from "./users"
@@ -23,27 +23,54 @@ const appDataScope = v.union(
   v.literal("application-detail")
 )
 
-type AppDataScope =
-  | "full"
-  | "shell"
-  | "command"
-  | "today"
-  | "pipeline"
-  | "interviews"
-  | "targets"
-  | "prep"
-  | "stories"
-  | "people"
-  | "documents"
-  | "analytics"
-  | "goals"
-  | "failure"
-  | "settings"
-  | "workspace"
-  | "application-detail"
+export type AppDataScope = Infer<typeof appDataScope>
 
 function includes(scope: AppDataScope, allowed: AppDataScope[]) {
   return scope === "full" || allowed.includes(scope)
+}
+
+/**
+ * Collections that fall back to an applicationId-scoped read (instead of an
+ * empty array) when the scope is "application-detail". Every other scope is
+ * governed purely by the declarative full-collection scope lists below.
+ */
+type DetailScopedTable =
+  | "tasks"
+  | "activityEvents"
+  | "applicationStageHistory"
+  | "applicationContacts"
+  | "applicationInterviews"
+  | "applicationOffers"
+
+/** Scopes that receive the full (all-rows) load for each collection. */
+const FULL_COLLECTION_SCOPES: Record<DetailScopedTable, AppDataScope[]> & {
+  resumes: AppDataScope[]
+  applicationResumeLinks: AppDataScope[]
+  weeklyGoals: AppDataScope[]
+  winLogEntries: AppDataScope[]
+  qualityChecklistItems: AppDataScope[]
+  targetCompanies: AppDataScope[]
+  referralOutreach: AppDataScope[]
+  interviewPrepPlans: AppDataScope[]
+  storyBankEntries: AppDataScope[]
+  storyUsages: AppDataScope[]
+} = {
+  tasks: ["today", "goals"],
+  activityEvents: ["today", "analytics"],
+  applicationStageHistory: ["analytics"],
+  applicationContacts: ["command", "pipeline", "interviews", "people", "workspace"],
+  applicationInterviews: ["today", "pipeline", "interviews", "stories", "failure"],
+  applicationOffers: ["today"],
+  resumes: ["command", "pipeline", "documents", "analytics", "workspace", "application-detail"],
+  applicationResumeLinks: [],
+  weeklyGoals: ["today", "goals"],
+  winLogEntries: ["today", "goals"],
+  qualityChecklistItems: ["settings"],
+  targetCompanies: ["targets", "prep", "workspace"],
+  referralOutreach: ["targets", "failure"],
+  interviewPrepPlans: ["prep", "workspace", "failure"],
+  storyBankEntries: ["stories", "workspace", "failure"],
+  storyUsages: ["stories"],
 }
 
 /**
@@ -176,6 +203,27 @@ export const get = query({
       "failure",
     ])
 
+    const resolveFullOnly = <T>(scopes: AppDataScope[], loader: () => Promise<T[]>): Promise<T[]> =>
+      includes(scope, scopes) ? loader() : Promise.resolve([])
+
+    const resolveDetailScoped = <T>(
+      table: DetailScopedTable,
+      loader: () => Promise<T[]>
+    ): Promise<T[]> => {
+      if (includes(scope, FULL_COLLECTION_SCOPES[table])) {
+        return loader()
+      }
+      if (scope === "application-detail" && ownedFocusedApplication) {
+        return ctx.db
+          .query(table)
+          .withIndex("by_userId_and_applicationId", (q) =>
+            q.eq("userId", user._id).eq("applicationId", ownedFocusedApplication._id)
+          )
+          .collect() as Promise<T[]>
+      }
+      return Promise.resolve([])
+    }
+
     const [
       settings,
       applications,
@@ -207,102 +255,22 @@ export const get = query({
         : wantsApplications
           ? load.applications()
           : Promise.resolve([]),
-      includes(scope, ["command", "pipeline", "documents", "analytics", "workspace", "application-detail"])
-        ? load.resumes()
-        : Promise.resolve([]),
-      scope === "full"
-        ? load.applicationResumeLinks()
-        : Promise.resolve([]),
-      includes(scope, ["today", "goals"])
-        ? load.tasks()
-        : scope === "application-detail" && ownedFocusedApplication
-          ? ctx.db
-              .query("tasks")
-              .withIndex("by_userId_and_applicationId", (q) =>
-                q.eq("userId", user._id).eq("applicationId", ownedFocusedApplication._id)
-              )
-              .collect()
-          : Promise.resolve([]),
-      includes(scope, ["today", "analytics"])
-        ? load.activityEvents()
-        : scope === "application-detail" && ownedFocusedApplication
-          ? ctx.db
-              .query("activityEvents")
-              .withIndex("by_userId_and_applicationId", (q) =>
-                q.eq("userId", user._id).eq("applicationId", ownedFocusedApplication._id)
-              )
-              .collect()
-          : Promise.resolve([]),
-      scope === "analytics"
-        ? load.applicationStageHistory()
-        : scope === "application-detail" && ownedFocusedApplication
-          ? ctx.db
-              .query("applicationStageHistory")
-              .withIndex("by_userId_and_applicationId", (q) =>
-                q.eq("userId", user._id).eq("applicationId", ownedFocusedApplication._id)
-              )
-              .collect()
-          : scope === "full"
-            ? load.applicationStageHistory()
-            : Promise.resolve([]),
-      includes(scope, ["command", "pipeline", "interviews", "people", "workspace"])
-        ? load.applicationContacts()
-        : scope === "application-detail" && ownedFocusedApplication
-          ? ctx.db
-              .query("applicationContacts")
-              .withIndex("by_userId_and_applicationId", (q) =>
-                q.eq("userId", user._id).eq("applicationId", ownedFocusedApplication._id)
-              )
-              .collect()
-          : Promise.resolve([]),
-      includes(scope, ["today", "pipeline", "interviews", "stories", "failure"])
-        ? load.applicationInterviews()
-        : scope === "application-detail" && ownedFocusedApplication
-          ? ctx.db
-              .query("applicationInterviews")
-              .withIndex("by_userId_and_applicationId", (q) =>
-                q.eq("userId", user._id).eq("applicationId", ownedFocusedApplication._id)
-              )
-              .collect()
-          : Promise.resolve([]),
-      scope === "today"
-        ? load.applicationOffers()
-        : scope === "application-detail" && ownedFocusedApplication
-          ? ctx.db
-              .query("applicationOffers")
-              .withIndex("by_userId_and_applicationId", (q) =>
-                q.eq("userId", user._id).eq("applicationId", ownedFocusedApplication._id)
-              )
-              .collect()
-          : scope === "full"
-            ? load.applicationOffers()
-            : Promise.resolve([]),
-      includes(scope, ["today", "goals"])
-        ? load.weeklyGoals()
-        : Promise.resolve([]),
-      includes(scope, ["today", "goals"])
-        ? load.winLogEntries()
-        : Promise.resolve([]),
-      scope === "settings"
-        ? load.qualityChecklistItems()
-        : scope === "full"
-          ? load.qualityChecklistItems()
-          : Promise.resolve([]),
-      includes(scope, ["targets", "prep", "workspace"])
-        ? load.targetCompanies()
-        : Promise.resolve([]),
-      includes(scope, ["targets", "failure"])
-        ? load.referralOutreach()
-        : Promise.resolve([]),
-      includes(scope, ["prep", "workspace", "failure"])
-        ? load.interviewPrepPlans()
-        : Promise.resolve([]),
-      includes(scope, ["stories", "workspace", "failure"])
-        ? load.storyBankEntries()
-        : Promise.resolve([]),
-      scope === "stories" || scope === "full"
-        ? load.storyUsages()
-        : Promise.resolve([]),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.resumes, load.resumes),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.applicationResumeLinks, load.applicationResumeLinks),
+      resolveDetailScoped("tasks", load.tasks),
+      resolveDetailScoped("activityEvents", load.activityEvents),
+      resolveDetailScoped("applicationStageHistory", load.applicationStageHistory),
+      resolveDetailScoped("applicationContacts", load.applicationContacts),
+      resolveDetailScoped("applicationInterviews", load.applicationInterviews),
+      resolveDetailScoped("applicationOffers", load.applicationOffers),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.weeklyGoals, load.weeklyGoals),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.winLogEntries, load.winLogEntries),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.qualityChecklistItems, load.qualityChecklistItems),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.targetCompanies, load.targetCompanies),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.referralOutreach, load.referralOutreach),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.interviewPrepPlans, load.interviewPrepPlans),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.storyBankEntries, load.storyBankEntries),
+      resolveFullOnly(FULL_COLLECTION_SCOPES.storyUsages, load.storyUsages),
     ])
 
     const shouldResolveResumeUsage = scope === "documents" || scope === "full"
