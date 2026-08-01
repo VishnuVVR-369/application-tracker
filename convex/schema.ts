@@ -10,6 +10,12 @@ export const applicationStage = v.union(
   v.literal("closed")
 )
 
+export const onboardingStatus = v.union(
+  v.literal("active"),
+  v.literal("completed"),
+  v.literal("dismissed")
+)
+
 export const applicationSource = v.union(
   v.literal("linkedin"),
   v.literal("company_website"),
@@ -312,6 +318,7 @@ export default defineSchema({
     userId: v.id("users"),
     displayName: v.optional(v.string()),
     theme: v.union(v.literal("dark"), v.literal("light"), v.literal("system")),
+    onboardingStatus: v.optional(onboardingStatus),
     timezone: v.string(),
     weekStartsOn: v.literal("monday"),
     createdAt: v.number(),

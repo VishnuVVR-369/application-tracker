@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useMutation } from "convex/react"
-import { Save } from "lucide-react"
+import { ChevronDown, ChevronUp, Save } from "lucide-react"
 
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
@@ -11,13 +11,13 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   APPLICATION_STAGES,
@@ -32,6 +32,7 @@ import {
   WORK_ARRANGEMENTS,
   type ApplicationStage,
 } from "@/lib/application-model"
+import { Field, FormError, NativeSelect, SectionLabel } from "./form-kit"
 
 type ApplicationFormSheetProps = {
   trigger?: React.ReactNode
@@ -100,6 +101,7 @@ export function ApplicationFormSheet({
   const [pending, setPending] = React.useState(false)
   const [formError, setFormError] = React.useState("")
   const [form, setForm] = React.useState(() => buildInitialForm(application))
+  const [showDetails, setShowDetails] = React.useState(Boolean(application))
 
   const setOpen = React.useCallback(
     (next: boolean) => {
@@ -113,6 +115,7 @@ export function ApplicationFormSheet({
     if (nextOpen) {
       setForm(buildInitialForm(application))
       setFormError("")
+      setShowDetails(Boolean(application))
     }
     setOpen(nextOpen)
   }
@@ -181,14 +184,29 @@ export function ApplicationFormSheet({
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b border-line/70 px-4 py-3 pr-12">
-          <DialogTitle>{application ? "Edit application" : "New application"}</DialogTitle>
+          <DialogTitle>{application ? "Edit application" : "Quick capture"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {application
+              ? "Update the details for this application."
+              : "Add the posting URL, company, role, and pipeline stage, with optional additional details."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-4 pt-3">
-          <SectionLabel>Basics</SectionLabel>
+          <SectionLabel>{application ? "Basics" : "Start with the essentials"}</SectionLabel>
+          <Field label="Posting URL" hint="Optional">
+            <Input
+              type="url"
+              autoFocus={!application}
+              placeholder="https://company.com/jobs/…"
+              value={form.postingUrl}
+              onChange={(event) => updateField("postingUrl", event.target.value)}
+            />
+          </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Company">
               <Input
                 required
+                placeholder="Company name"
                 value={form.companyName}
                 onChange={(event) => updateField("companyName", event.target.value)}
               />
@@ -196,188 +214,197 @@ export function ApplicationFormSheet({
             <Field label="Role">
               <Input
                 required
+                placeholder="Role title"
                 value={form.roleTitle}
                 onChange={(event) => updateField("roleTitle", event.target.value)}
               />
             </Field>
           </div>
-
-          <SectionLabel>Pipeline</SectionLabel>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Stage">
-              <Select value={form.stage} onChange={(value) => updateField("stage", value)}>
-                {APPLICATION_STAGES.map((stage) => (
-                  <option key={stage} value={stage}>
-                    {STAGE_LABELS[stage]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Linked resume">
-              <Select value={form.currentResumeId} onChange={(value) => updateField("currentResumeId", value)}>
-                <option value="">Use default resume</option>
-                {resumes
-                  .filter((resume) => !resume.archived)
-                  .map((resume) => (
-                    <option key={resume._id} value={resume._id}>
-                      {resume.label}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-          </div>
-
-          <SectionLabel>Logistics &amp; compensation</SectionLabel>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Location">
-              <Input
-                value={form.location}
-                onChange={(event) => updateField("location", event.target.value)}
-              />
-            </Field>
-            <Field label="Work arrangement">
-              <Select
-                value={form.workArrangement}
-                onChange={(value) => updateField("workArrangement", value)}
-              >
-                <option value="">Not set</option>
-                {WORK_ARRANGEMENTS.map((value) => (
-                  <option key={value} value={value}>
-                    {WORK_ARRANGEMENT_LABELS[value]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Comp min">
-              <Input
-                type="number"
-                value={form.compensationMin}
-                onChange={(event) => updateField("compensationMin", event.target.value)}
-              />
-            </Field>
-            <Field label="Comp max">
-              <Input
-                type="number"
-                value={form.compensationMax}
-                onChange={(event) => updateField("compensationMax", event.target.value)}
-              />
-            </Field>
-            <Field label="Currency">
-              <Input
-                value={form.compensationCurrency}
-                onChange={(event) => updateField("compensationCurrency", event.target.value)}
-              />
-            </Field>
-          </div>
-
-          <Field label="Company website">
-            <Input
-              type="url"
-              value={form.companyWebsite}
-              onChange={(event) => updateField("companyWebsite", event.target.value)}
-            />
+          <Field label="Stage">
+            <NativeSelect value={form.stage} onChange={(value) => updateField("stage", value)}>
+              {APPLICATION_STAGES.map((stage) => (
+                <option key={stage} value={stage}>
+                  {STAGE_LABELS[stage]}
+                </option>
+              ))}
+            </NativeSelect>
           </Field>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Source">
-              <Select value={form.source} onChange={(value) => updateField("source", value)}>
-                <option value="">Not set</option>
-                {SOURCES.map((source) => (
-                  <option key={source} value={source}>
-                    {SOURCE_LABELS[source]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Referral">
-              <Select
-                value={form.referralStatus}
-                onChange={(value) => updateField("referralStatus", value)}
-              >
-                {REFERRAL_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {REFERRAL_LABELS[status]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Application type">
-              <Select
-                value={form.applicationType}
-                onChange={(value) => updateField("applicationType", value)}
-              >
-                <option value="">Not set</option>
-                {APPLICATION_TYPES.map((value) => (
-                  <option key={value} value={value}>
-                    {APPLICATION_TYPE_LABELS[value]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Date applied">
-              <Input
-                type="date"
-                value={form.dateAppliedDate}
-                onChange={(event) => updateField("dateAppliedDate", event.target.value)}
-              />
-            </Field>
-          </div>
-
-          <Field label="Posting URL">
-            <Input
-              type="url"
-              value={form.postingUrl}
-              onChange={(event) => updateField("postingUrl", event.target.value)}
-            />
-          </Field>
-
-          <SectionLabel>Deadlines</SectionLabel>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Apply by">
-              <Input
-                type="date"
-                value={form.applicationDeadlineDate}
-                onChange={(event) => updateField("applicationDeadlineDate", event.target.value)}
-              />
-            </Field>
-            <Field label="Take-home by">
-              <Input
-                type="date"
-                value={form.takeHomeDeadlineDate}
-                onChange={(event) => updateField("takeHomeDeadlineDate", event.target.value)}
-              />
-            </Field>
-            <Field label="Offer response by">
-              <Input
-                type="date"
-                value={form.offerResponseDeadlineDate}
-                onChange={(event) => updateField("offerResponseDeadlineDate", event.target.value)}
-              />
-            </Field>
-          </div>
-
-          <SectionLabel>Content</SectionLabel>
-          <Field label="Job description snapshot">
-            <Textarea
-              value={form.jobDescriptionSnapshot}
-              onChange={(event) => updateField("jobDescriptionSnapshot", event.target.value)}
-            />
-          </Field>
-          <Field label="Notes">
-            <Textarea value={form.notes} onChange={(event) => updateField("notes", event.target.value)} />
-          </Field>
-
-          {formError && (
-            <p className="rounded-md border border-status-down/30 bg-status-down/10 px-3 py-2 text-sm text-status-down">
-              {formError}
-            </p>
+          {!application && (
+            <Button
+              type="button"
+              variant="secondary"
+              aria-expanded={showDetails}
+              aria-controls="application-extra-details"
+              onClick={() => setShowDetails((current) => !current)}
+              className="w-full justify-between"
+            >
+              {showDetails ? "Hide details" : "Add details"}
+              {showDetails ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            </Button>
           )}
+
+          {showDetails && (
+            <div id="application-extra-details" className="grid gap-4">
+              <SectionLabel>Pipeline details</SectionLabel>
+              <Field label="Linked resume">
+                <NativeSelect
+                  value={form.currentResumeId}
+                  onChange={(value) => updateField("currentResumeId", value)}
+                >
+                  <option value="">Use default resume</option>
+                  {resumes
+                    .filter((resume) => !resume.archived)
+                    .map((resume) => (
+                      <option key={resume._id} value={resume._id}>
+                        {resume.label}
+                      </option>
+                    ))}
+                </NativeSelect>
+              </Field>
+
+              <SectionLabel>Logistics &amp; compensation</SectionLabel>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Location">
+                  <Input
+                    value={form.location}
+                    onChange={(event) => updateField("location", event.target.value)}
+                  />
+                </Field>
+                <Field label="Work arrangement">
+                  <NativeSelect
+                    value={form.workArrangement}
+                    onChange={(value) => updateField("workArrangement", value)}
+                  >
+                    <option value="">Not set</option>
+                    {WORK_ARRANGEMENTS.map((value) => (
+                      <option key={value} value={value}>
+                        {WORK_ARRANGEMENT_LABELS[value]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Comp min">
+                  <Input
+                    type="number"
+                    value={form.compensationMin}
+                    onChange={(event) => updateField("compensationMin", event.target.value)}
+                  />
+                </Field>
+                <Field label="Comp max">
+                  <Input
+                    type="number"
+                    value={form.compensationMax}
+                    onChange={(event) => updateField("compensationMax", event.target.value)}
+                  />
+                </Field>
+                <Field label="Currency">
+                  <Input
+                    value={form.compensationCurrency}
+                    onChange={(event) => updateField("compensationCurrency", event.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Company website">
+                <Input
+                  type="url"
+                  value={form.companyWebsite}
+                  onChange={(event) => updateField("companyWebsite", event.target.value)}
+                />
+              </Field>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Source">
+                  <NativeSelect value={form.source} onChange={(value) => updateField("source", value)}>
+                    <option value="">Not set</option>
+                    {SOURCES.map((source) => (
+                      <option key={source} value={source}>
+                        {SOURCE_LABELS[source]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <Field label="Referral">
+                  <NativeSelect value={form.referralStatus} onChange={(value) => updateField("referralStatus", value)}>
+                    {REFERRAL_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {REFERRAL_LABELS[status]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Application type">
+                  <NativeSelect
+                    value={form.applicationType}
+                    onChange={(value) => updateField("applicationType", value)}
+                  >
+                    <option value="">Not set</option>
+                    {APPLICATION_TYPES.map((value) => (
+                      <option key={value} value={value}>
+                        {APPLICATION_TYPE_LABELS[value]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <Field label="Date applied">
+                  <Input
+                    type="date"
+                    value={form.dateAppliedDate}
+                    onChange={(event) => updateField("dateAppliedDate", event.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <SectionLabel>Deadlines</SectionLabel>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Apply by">
+                  <Input
+                    type="date"
+                    value={form.applicationDeadlineDate}
+                    onChange={(event) =>
+                      updateField("applicationDeadlineDate", event.target.value)
+                    }
+                  />
+                </Field>
+                <Field label="Take-home by">
+                  <Input
+                    type="date"
+                    value={form.takeHomeDeadlineDate}
+                    onChange={(event) => updateField("takeHomeDeadlineDate", event.target.value)}
+                  />
+                </Field>
+                <Field label="Offer response by">
+                  <Input
+                    type="date"
+                    value={form.offerResponseDeadlineDate}
+                    onChange={(event) =>
+                      updateField("offerResponseDeadlineDate", event.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+
+              <SectionLabel>Content</SectionLabel>
+              <Field label="Job description snapshot">
+                <Textarea
+                  value={form.jobDescriptionSnapshot}
+                  onChange={(event) => updateField("jobDescriptionSnapshot", event.target.value)}
+                />
+              </Field>
+              <Field label="Notes">
+                <Textarea value={form.notes} onChange={(event) => updateField("notes", event.target.value)} />
+              </Field>
+            </div>
+          )}
+
+          <FormError message={formError} />
 
           <DialogFooter className="sticky bottom-0 -mx-4 -mb-4 mt-2 flex-row justify-end gap-2 border-t border-line/70 bg-surface-1/95 px-4 supports-backdrop-filter:backdrop-blur-sm">
             <DialogClose asChild>
@@ -387,50 +414,11 @@ export function ApplicationFormSheet({
             </DialogClose>
             <Button type="submit" disabled={pending}>
               <Save className="size-4" />
-              {pending ? "Saving…" : "Save application"}
+              {pending ? "Saving…" : application ? "Save application" : "Add application"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-1.5">
-      <Label>{label}</Label>
-      {children}
-    </div>
-  )
-}
-
-function Select({
-  value,
-  onChange,
-  children,
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-9 rounded-md border border-line bg-surface-1 px-2 text-sm text-ink-100 outline-none transition-colors hover:border-line-strong focus:ring-3 focus:ring-ring/50"
-    >
-      {children}
-    </select>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="micro-label mt-2 flex items-center gap-2 first:mt-0">
-      <span className="h-px flex-1 bg-line" />
-      {children}
-      <span className="h-px flex-1 bg-line" />
-    </p>
   )
 }

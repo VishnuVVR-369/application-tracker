@@ -46,6 +46,7 @@ describe("convex api", () => {
 
     const current = await authed.query(api.users.current)
     expect(current?.settings?.timezone).toBe("America/New_York")
+    expect(current?.settings?.onboardingStatus).toBe("active")
 
     const counts = await t.run(async (ctx) => {
       const users = await ctx.db.query("users").collect()
@@ -73,6 +74,91 @@ describe("convex api", () => {
 
     const userCount = await t.run(async (ctx) => (await ctx.db.query("users").collect()).length)
     expect(userCount).toBe(1)
+  })
+
+  it("leaves legacy onboarding inactive when its status is missing", async () => {
+    const t = convexTest({ schema, modules })
+    const now = Date.parse("2026-05-01T09:00:00.000Z")
+
+    await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        authSubject: identity.subject,
+        tokenIdentifier: identity.tokenIdentifier,
+        name: identity.name,
+        email: identity.email,
+        normalizedEmail: identity.email,
+        createdAt: now,
+        updatedAt: now,
+      })
+      await ctx.db.insert("userSettings", {
+        userId,
+        displayName: identity.name,
+        theme: "dark",
+        timezone: "UTC",
+        weekStartsOn: "monday",
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+
+    const authed = t.withIdentity(identity)
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBeUndefined()
+
+    await authed.mutation(api.applications.create, {
+      companyName: "Legacy Corp",
+      roleTitle: "Engineer",
+      stage: "saved",
+    })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBeUndefined()
+  })
+
+  it("persists onboarding choices and completes active onboarding after first actions", async () => {
+    const authed = testClient()
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("active")
+
+    await authed.mutation(api.users.setOnboardingStatus, { status: "dismissed" })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("dismissed")
+
+    const dismissedStorageId = await authed.run((ctx) =>
+      ctx.storage.store(new Blob(["dismissed resume"], { type: "application/pdf" }))
+    )
+    await authed.mutation(api.resumes.create, {
+      label: "Dismissed onboarding resume",
+      fileName: "dismissed.pdf",
+      storageId: dismissedStorageId,
+      mimeType: "application/pdf",
+      sizeBytes: 16,
+      isDefault: false,
+    })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("dismissed")
+
+    await authed.mutation(api.users.setOnboardingStatus, { status: "active" })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("active")
+    const activeStorageId = await authed.run((ctx) =>
+      ctx.storage.store(new Blob(["active resume"], { type: "application/pdf" }))
+    )
+    await authed.mutation(api.resumes.create, {
+      label: "Active onboarding resume",
+      fileName: "active.pdf",
+      storageId: activeStorageId,
+      mimeType: "application/pdf",
+      sizeBytes: 13,
+      isDefault: false,
+    })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("completed")
+
+    await authed.mutation(api.users.setOnboardingStatus, { status: "active" })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("active")
+    await authed.mutation(api.applications.create, {
+      companyName: "Acme",
+      roleTitle: "Engineer",
+      stage: "saved",
+      postingUrl: "https://example.com/jobs/engineer",
+    })
+
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("completed")
   })
 
   it("records application milestones as stage history, activity, and deduped wins", async () => {

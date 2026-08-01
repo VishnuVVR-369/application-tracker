@@ -3,6 +3,7 @@ import { v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { normalizeEmail } from "./model"
+import { onboardingStatus } from "./schema"
 
 const DEFAULT_TIMEZONE = "UTC"
 
@@ -73,11 +74,32 @@ export async function getCurrentUserDocOrNull(ctx: QueryCtx | MutationCtx) {
   return result?.user ?? null
 }
 
+export async function completeOnboardingAfterFirstAction(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  completedAt = Date.now()
+) {
+  const settings = await ctx.db
+    .query("userSettings")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique()
+
+  if (settings?.onboardingStatus !== "active") {
+    return
+  }
+
+  await ctx.db.patch(settings._id, {
+    onboardingStatus: "completed",
+    updatedAt: completedAt,
+  })
+}
+
 async function ensureSettings(
   ctx: MutationCtx,
   userId: Id<"users">,
   displayName?: string,
-  timezone?: string
+  timezone?: string,
+  initialOnboardingStatus?: "active"
 ) {
   const existing = await ctx.db
     .query("userSettings")
@@ -90,6 +112,7 @@ async function ensureSettings(
       userId,
       displayName,
       theme: "dark",
+      onboardingStatus: initialOnboardingStatus,
       timezone: timezone ?? DEFAULT_TIMEZONE,
       weekStartsOn: "monday",
       createdAt: now,
@@ -169,7 +192,7 @@ export async function ensureCurrentUserDoc(
     ...patch,
     createdAt: now,
   })
-  await ensureSettings(ctx, userId, identity.name, options?.timezone)
+  await ensureSettings(ctx, userId, identity.name, options?.timezone, "active")
   await ensureQualityDefaults(ctx, userId)
   return (await ctx.db.get(userId)) as Doc<"users">
 }
@@ -229,6 +252,28 @@ export const updateSettings = mutation({
     await ctx.db.patch(settings._id, {
       ...args,
       updatedAt: now,
+    })
+  },
+})
+
+export const setOnboardingStatus = mutation({
+  args: {
+    status: onboardingStatus,
+  },
+  handler: async (ctx, args) => {
+    const user = await ensureCurrentUserDoc(ctx)
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique()
+
+    if (!settings) {
+      throw new Error("User settings not found")
+    }
+
+    await ctx.db.patch(settings._id, {
+      onboardingStatus: args.status,
+      updatedAt: Date.now(),
     })
   },
 })

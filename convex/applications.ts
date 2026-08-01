@@ -24,7 +24,7 @@ import {
   normalizeKey,
   removeUndefined,
 } from "./model"
-import { getCurrentUserDoc } from "./users"
+import { completeOnboardingAfterFirstAction, getCurrentUserDoc } from "./users"
 
 const optionalApplicationFields = {
   companyWebsite: v.optional(v.string()),
@@ -500,6 +500,8 @@ export const create = mutation({
     if (application) {
       await addMilestoneWins(ctx, user._id, application, now)
     }
+
+    await completeOnboardingAfterFirstAction(ctx, user._id, now)
 
     return applicationId
   },
