@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { useMutation, useQuery } from "convex/react"
 import {
   ChevronDown,
@@ -13,11 +14,13 @@ import {
   Moon,
   Palette,
   Plus,
+  RotateCcw,
   Save,
   Sun,
   UserRound,
 } from "lucide-react"
 import { useTheme } from "next-themes"
+import { toast } from "sonner"
 
 import { api } from "@/convex/_generated/api"
 import { Button } from "@/components/ui/button"
@@ -36,14 +39,17 @@ const THEMES = [
 ] as const
 
 export function SettingsPage() {
+  const router = useRouter()
   const { data, isLoading } = useAppData("settings")
   const exportPayload = useQuery(api.exportData.all, data ? {} : "skip")
   const updateSettings = useMutation(api.users.updateSettings)
+  const setOnboardingStatus = useMutation(api.users.setOnboardingStatus)
   const updateQualityItem = useMutation(api.quality.updateItem)
   const addQualityItem = useMutation(api.quality.addItem)
   const reorderQualityItem = useMutation(api.quality.reorderItem)
   const { setTheme } = useTheme()
   const [newLabel, setNewLabel] = React.useState("")
+  const [restartingOnboarding, setRestartingOnboarding] = React.useState(false)
 
   if (isLoading) {
     return <PageSkeleton columns="1fr 1fr" panels={2} />
@@ -70,6 +76,19 @@ export function SettingsPage() {
     if (!newLabel.trim()) return
     await addQualityItem({ label: newLabel, weight: 1 })
     setNewLabel("")
+  }
+
+  async function restartOnboarding() {
+    setRestartingOnboarding(true)
+    try {
+      await setOnboardingStatus({ status: "active" })
+      router.push("/app")
+      toast.success("Onboarding restarted")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not restart onboarding")
+    } finally {
+      setRestartingOnboarding(false)
+    }
   }
 
   function downloadExport() {
@@ -140,6 +159,27 @@ export function SettingsPage() {
                 </button>
               )
             })}
+          </div>
+        </Panel>
+
+        <Panel title="First-run guide" icon={RotateCcw} className="xl:col-span-2">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">Need the guided start again?</p>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-300">
+                Reopen the three starting paths for quick capture, resume upload, and workspace exploration.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={restartingOnboarding}
+              onClick={() => void restartOnboarding()}
+              className="w-fit shrink-0"
+            >
+              <RotateCcw className="size-4" />
+              {restartingOnboarding ? "Restarting…" : "Restart onboarding"}
+            </Button>
           </div>
         </Panel>
 

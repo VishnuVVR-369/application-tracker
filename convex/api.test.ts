@@ -75,6 +75,51 @@ describe("convex api", () => {
     expect(userCount).toBe(1)
   })
 
+  it("persists onboarding choices and completes active onboarding after first actions", async () => {
+    const authed = testClient()
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+
+    await authed.mutation(api.users.setOnboardingStatus, { status: "dismissed" })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("dismissed")
+
+    const dismissedStorageId = await authed.run((ctx) =>
+      ctx.storage.store(new Blob(["dismissed resume"], { type: "application/pdf" }))
+    )
+    await authed.mutation(api.resumes.create, {
+      label: "Dismissed onboarding resume",
+      fileName: "dismissed.pdf",
+      storageId: dismissedStorageId,
+      mimeType: "application/pdf",
+      sizeBytes: 16,
+      isDefault: false,
+    })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("dismissed")
+
+    await authed.mutation(api.users.setOnboardingStatus, { status: "active" })
+    const activeStorageId = await authed.run((ctx) =>
+      ctx.storage.store(new Blob(["active resume"], { type: "application/pdf" }))
+    )
+    await authed.mutation(api.resumes.create, {
+      label: "Active onboarding resume",
+      fileName: "active.pdf",
+      storageId: activeStorageId,
+      mimeType: "application/pdf",
+      sizeBytes: 13,
+      isDefault: false,
+    })
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("completed")
+
+    await authed.mutation(api.users.setOnboardingStatus, { status: "active" })
+    await authed.mutation(api.applications.create, {
+      companyName: "Acme",
+      roleTitle: "Engineer",
+      stage: "saved",
+      postingUrl: "https://example.com/jobs/engineer",
+    })
+
+    expect((await authed.query(api.users.current))?.settings?.onboardingStatus).toBe("completed")
+  })
+
   it("records application milestones as stage history, activity, and deduped wins", async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-06-01T09:00:00.000Z"))

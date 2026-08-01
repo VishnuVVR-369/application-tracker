@@ -37,6 +37,7 @@ import {
   type InterviewFormat,
 } from "@/lib/interview-model"
 import { formatOfferBase } from "@/lib/offer-model"
+import { shouldShowOnboarding } from "@/lib/onboarding-model"
 import { buildRaceModel } from "@/lib/race-model"
 import { buildTodayModel } from "@/lib/today-model"
 import { cn } from "@/lib/utils"
@@ -54,6 +55,7 @@ import {
   mapWin,
 } from "./data-mappers"
 import { useAppData } from "./use-app-data"
+import { FirstRunOnboarding } from "./first-run-onboarding"
 
 const stageAccent: Record<ApplicationStage, string> = {
   saved: "bg-stage-saved",
@@ -113,6 +115,16 @@ export function TodayPage() {
     )
   }
 
+  const firstName = (data.settings?.displayName || data.user.name || "there").split(" ")[0]
+  if (
+    shouldShowOnboarding({
+      applicationCount: data.applications.length,
+      status: data.settings?.onboardingStatus,
+    })
+  ) {
+    return <FirstRunOnboarding firstName={firstName} resumes={data.resumes} />
+  }
+
   const applications = data.applications.map(mapApplication)
   const tasks = data.tasks.map(mapTask)
   const ghosting = buildGhostingModel({ applications, now: new Date(now) })
@@ -131,7 +143,6 @@ export function TodayPage() {
     wins: data.winLogEntries.map(mapWin),
   })
 
-  const firstName = (data.settings?.displayName || data.user.name || "there").split(" ")[0]
   const today = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     month: "long",

@@ -1,7 +1,7 @@
 import { v } from "convex/values"
 
 import { mutation } from "./_generated/server"
-import { getCurrentUserDoc } from "./users"
+import { completeOnboardingAfterFirstAction, getCurrentUserDoc } from "./users"
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024
 
@@ -62,7 +62,7 @@ export const create = mutation({
       )
     }
 
-    return await ctx.db.insert("resumes", {
+    const resumeId = await ctx.db.insert("resumes", {
       userId: user._id,
       label: args.label,
       fileName: args.fileName,
@@ -77,6 +77,9 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     })
+
+    await completeOnboardingAfterFirstAction(ctx, user._id, now)
+    return resumeId
   },
 })
 

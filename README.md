@@ -4,6 +4,7 @@ A job-search command center, not just a spreadsheet replacement. Track applicati
 
 ## Features
 
+- **Guided first run** — choose quick application capture, resume upload, or a workspace tour, with a persistent restart control in Settings.
 - **Applications** — pipeline from saved → applied → phone screen → interview → offer/closed, with source, referral status, and compensation tracking.
 - **Targets** — a ranked list of target companies (dream/strong/backup) with referral outreach tracking.
 - **Interviews & Prep** — schedule interviews and prep story-bank material (behavioral stories, talking points) ahead of them.

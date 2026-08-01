@@ -61,7 +61,7 @@ const FULL_COLLECTION_SCOPES: Record<DetailScopedTable, AppDataScope[]> & {
   applicationContacts: ["command", "pipeline", "interviews", "people", "workspace"],
   applicationInterviews: ["today", "pipeline", "interviews", "stories", "failure"],
   applicationOffers: ["today"],
-  resumes: ["command", "pipeline", "documents", "analytics", "workspace", "application-detail"],
+  resumes: ["command", "today", "pipeline", "documents", "analytics", "workspace", "application-detail"],
   applicationResumeLinks: [],
   weeklyGoals: ["today", "goals"],
   winLogEntries: ["today", "goals"],

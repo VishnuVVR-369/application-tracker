@@ -3,6 +3,7 @@ import { v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { normalizeEmail } from "./model"
+import { onboardingStatus } from "./schema"
 
 const DEFAULT_TIMEZONE = "UTC"
 
@@ -71,6 +72,30 @@ export async function getCurrentUserDoc(ctx: QueryCtx | MutationCtx) {
 export async function getCurrentUserDocOrNull(ctx: QueryCtx | MutationCtx) {
   const result = await findUserByIdentity(ctx)
   return result?.user ?? null
+}
+
+export async function completeOnboardingAfterFirstAction(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  completedAt = Date.now()
+) {
+  const settings = await ctx.db
+    .query("userSettings")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique()
+
+  if (
+    !settings ||
+    settings.onboardingStatus === "completed" ||
+    settings.onboardingStatus === "dismissed"
+  ) {
+    return
+  }
+
+  await ctx.db.patch(settings._id, {
+    onboardingStatus: "completed",
+    updatedAt: completedAt,
+  })
 }
 
 async function ensureSettings(
@@ -229,6 +254,28 @@ export const updateSettings = mutation({
     await ctx.db.patch(settings._id, {
       ...args,
       updatedAt: now,
+    })
+  },
+})
+
+export const setOnboardingStatus = mutation({
+  args: {
+    status: onboardingStatus,
+  },
+  handler: async (ctx, args) => {
+    const user = await ensureCurrentUserDoc(ctx)
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique()
+
+    if (!settings) {
+      throw new Error("User settings not found")
+    }
+
+    await ctx.db.patch(settings._id, {
+      onboardingStatus: args.status,
+      updatedAt: Date.now(),
     })
   },
 })
