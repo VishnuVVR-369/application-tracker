@@ -118,7 +118,6 @@ export function TodayPage() {
   const firstName = (data.settings?.displayName || data.user.name || "there").split(" ")[0]
   if (
     shouldShowOnboarding({
-      applicationCount: data.applications.length,
       status: data.settings?.onboardingStatus,
     })
   ) {

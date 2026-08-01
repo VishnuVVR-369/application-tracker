@@ -84,11 +84,7 @@ export async function completeOnboardingAfterFirstAction(
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique()
 
-  if (
-    !settings ||
-    settings.onboardingStatus === "completed" ||
-    settings.onboardingStatus === "dismissed"
-  ) {
+  if (settings?.onboardingStatus !== "active") {
     return
   }
 
@@ -102,7 +98,8 @@ async function ensureSettings(
   ctx: MutationCtx,
   userId: Id<"users">,
   displayName?: string,
-  timezone?: string
+  timezone?: string,
+  initialOnboardingStatus?: "active"
 ) {
   const existing = await ctx.db
     .query("userSettings")
@@ -115,6 +112,7 @@ async function ensureSettings(
       userId,
       displayName,
       theme: "dark",
+      onboardingStatus: initialOnboardingStatus,
       timezone: timezone ?? DEFAULT_TIMEZONE,
       weekStartsOn: "monday",
       createdAt: now,
@@ -194,7 +192,7 @@ export async function ensureCurrentUserDoc(
     ...patch,
     createdAt: now,
   })
-  await ensureSettings(ctx, userId, identity.name, options?.timezone)
+  await ensureSettings(ctx, userId, identity.name, options?.timezone, "active")
   await ensureQualityDefaults(ctx, userId)
   return (await ctx.db.get(userId)) as Doc<"users">
 }

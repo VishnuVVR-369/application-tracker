@@ -3,17 +3,16 @@ import { describe, expect, it } from "vitest"
 import { shouldShowOnboarding } from "@/lib/onboarding-model"
 
 describe("onboarding-model", () => {
-  it("starts onboarding for an account without applications", () => {
-    expect(shouldShowOnboarding({ applicationCount: 0 })).toBe(true)
+  it("shows onboarding only for an explicit active status", () => {
+    expect(shouldShowOnboarding({ status: "active" })).toBe(true)
   })
 
-  it("does not interrupt an existing account unless onboarding was restarted", () => {
-    expect(shouldShowOnboarding({ applicationCount: 3 })).toBe(false)
-    expect(shouldShowOnboarding({ applicationCount: 3, status: "active" })).toBe(true)
+  it("does not interrupt a legacy account with a missing status", () => {
+    expect(shouldShowOnboarding({})).toBe(false)
   })
 
   it("keeps completed and dismissed onboarding out of the way", () => {
-    expect(shouldShowOnboarding({ applicationCount: 0, status: "completed" })).toBe(false)
-    expect(shouldShowOnboarding({ applicationCount: 0, status: "dismissed" })).toBe(false)
+    expect(shouldShowOnboarding({ status: "completed" })).toBe(false)
+    expect(shouldShowOnboarding({ status: "dismissed" })).toBe(false)
   })
 })
