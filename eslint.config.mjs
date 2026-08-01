@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Convex owns these generated artifacts and recreates their lint directives.
+    "convex/_generated/**",
+    "convex/betterAuth/_generated/**",
   ]),
 ]);
 
