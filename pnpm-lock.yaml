@@ -68,8 +68,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       unpdf:
-        specifier: ^1.8.0
-        version: 1.8.0
+        specifier: 1.7.0
+        version: 1.7.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -4525,11 +4525,10 @@ packages:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
     engines: {node: '>= 10.0.0'}
 
-  unpdf@1.8.0:
-    resolution: {integrity: sha512-jQlkckbe5nKxRHQdbvo9IKHlU6Cjq00UlxxB8lrCIxvS2o5IbAL1wM+4a1Yc3+BIohg9p5AsoaftwO+G4Aq/qQ==}
-    engines: {node: '>=22'}
+  unpdf@1.7.0:
+    resolution: {integrity: sha512-MiDhbougTETOvbw/x3hnNr18jzFFrlSitevfO/BHInvtUx68R3Fke9A36GLQfN1LpG1NiJZaV4oPvjioPk9vKQ==}
     peerDependencies:
-      '@napi-rs/canvas': ^0.1.69 || ^1.0.0
+      '@napi-rs/canvas': ^0.1.69
     peerDependenciesMeta:
       '@napi-rs/canvas':
         optional: true
@@ -9355,7 +9354,7 @@ snapshots:
 
   universalify@2.0.1: {}
 
-  unpdf@1.8.0: {}
+  unpdf@1.7.0: {}
 
   unpipe@1.0.0: {}
 
