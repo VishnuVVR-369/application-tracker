@@ -350,6 +350,7 @@ export default defineSchema({
     sourceDetail: v.optional(v.string()),
     sourceSystem: v.optional(sourceSystem),
     sourceExternalId: v.optional(v.string()),
+    sourceExtensionTokenId: v.optional(v.id("extensionTokens")),
     dateSavedDate: v.optional(v.string()),
     dateAppliedDate: v.optional(v.string()),
     stage: applicationStage,
@@ -401,6 +402,20 @@ export default defineSchema({
       "sourceSystem",
       "sourceExternalId",
     ]),
+
+  extensionTokens: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    tokenHash: v.string(),
+    tokenPrefix: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    rateWindowStartedAt: v.optional(v.number()),
+    rateWindowRequestCount: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_tokenHash", ["tokenHash"]),
 
   applicationStageHistory: defineTable({
     userId: v.id("users"),

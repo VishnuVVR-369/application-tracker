@@ -13,6 +13,7 @@ A job-search command center, not just a spreadsheet replacement. Track applicati
 - **Ghosting assistant** — flags applications that have gone quiet and suggests follow-ups without changing their stage automatically.
 - **Insights & Analytics** — funnel conversion, effort-to-outcome (ROI), and other stats across your search.
 - **Goals** — weekly/period targets for applications, outreach, and interviews.
+- **LinkedIn capture extension** — review a LinkedIn job in Chrome, prevent duplicates, and save a complete posting snapshot through a revocable capture-only token.
 
 ## Tech stack
 
@@ -53,4 +54,9 @@ A job-search command center, not just a spreadsheet replacement. Track applicati
 - `pnpm lint` — run ESLint
 - `pnpm typecheck` — run the TypeScript compiler with no emit
 - `pnpm test` — run the Vitest suite
+- `pnpm extension:test` — run LinkedIn extraction and extension UI tests
+- `pnpm extension:build` — build the Chrome Manifest V3 extension
+- `pnpm extension:zip` — package a versioned extension ZIP
 - `pnpm seed:test-data` — seed a local Convex deployment with sample data (see `.env.example` for `SEED_*` overrides)
+
+See [`extension/README.md`](extension/README.md) for installation, permissions, privacy, troubleshooting, and end-to-end verification.

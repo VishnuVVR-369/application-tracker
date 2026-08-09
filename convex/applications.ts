@@ -353,6 +353,7 @@ type ApplicationPatchInput = {
   sourceDetail?: string
   sourceSystem?: Doc<"applications">["sourceSystem"]
   sourceExternalId?: string
+  sourceExtensionTokenId?: Id<"extensionTokens">
   dateSavedDate?: string
   dateAppliedDate?: string
   stage?: Doc<"applications">["stage"]
@@ -410,6 +411,7 @@ function buildApplicationPatch(args: ApplicationPatchInput) {
     sourceDetail: args.sourceDetail,
     sourceSystem: args.sourceSystem,
     sourceExternalId: args.sourceExternalId,
+    sourceExtensionTokenId: args.sourceExtensionTokenId,
     dateSavedDate: args.dateSavedDate,
     dateAppliedDate: args.dateAppliedDate,
     stage: args.stage,
@@ -436,15 +438,17 @@ function buildApplicationPatch(args: ApplicationPatchInput) {
   }) as Partial<Doc<"applications">>
 }
 
-export const create = mutation({
-  args: {
-    companyName: v.string(),
-    roleTitle: v.string(),
-    stage: applicationStage,
-    ...optionalApplicationFields,
-  },
-  handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx)
+type CreateApplicationInput = ApplicationPatchInput & {
+  companyName: string
+  roleTitle: string
+  stage: Doc<"applications">["stage"]
+}
+
+export async function createApplicationRecord(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  args: CreateApplicationInput
+) {
     const now = Date.now()
     const currentResumeId =
       args.currentResumeId ?? (await getDefaultResumeId(ctx, user._id))
@@ -504,6 +508,18 @@ export const create = mutation({
     await completeOnboardingAfterFirstAction(ctx, user._id, now)
 
     return applicationId
+}
+
+export const create = mutation({
+  args: {
+    companyName: v.string(),
+    roleTitle: v.string(),
+    stage: applicationStage,
+    ...optionalApplicationFields,
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserDoc(ctx)
+    return await createApplicationRecord(ctx, user, args)
   },
 })
 
