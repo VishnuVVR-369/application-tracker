@@ -43,6 +43,76 @@ function meta(document: Document, property: string) {
   return document.querySelector<HTMLMetaElement>(`meta[property="${property}"], meta[name="${property}"]`)?.content?.trim() || undefined
 }
 
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : undefined
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+function normalizeJobLocation(value: unknown) {
+  const location = record(value)
+  const address = record(location?.address)
+  if (!location || !address) return undefined
+  return {
+    address: {
+      addressLocality: stringValue(address.addressLocality),
+      addressRegion: stringValue(address.addressRegion),
+      addressCountry: stringValue(address.addressCountry),
+    },
+  }
+}
+
+function normalizeJsonLdPosting(candidate: unknown): JsonLdJobPosting | undefined {
+  const value = record(candidate)
+  if (!value) return undefined
+  const type = value["@type"]
+  if (
+    type !== "JobPosting" &&
+    !(Array.isArray(type) && type.some((entry) => entry === "JobPosting"))
+  ) {
+    return undefined
+  }
+
+  const organization = record(value.hiringOrganization)
+  const locations = (Array.isArray(value.jobLocation)
+    ? value.jobLocation
+    : [value.jobLocation])
+    .map(normalizeJobLocation)
+    .filter((location) => location !== undefined)
+  const salary = record(value.baseSalary)
+  const salaryValue = record(salary?.value)
+
+  return {
+    "@type": "JobPosting",
+    title: stringValue(value.title),
+    description: stringValue(value.description),
+    hiringOrganization: organization
+      ? { name: stringValue(organization.name) }
+      : undefined,
+    jobLocation: locations.length > 0 ? locations : undefined,
+    jobLocationType: stringValue(value.jobLocationType),
+    baseSalary: salary && salaryValue
+      ? {
+          currency: salary.currency,
+          value: {
+            minValue: numberValue(salaryValue.minValue),
+            maxValue: numberValue(salaryValue.maxValue),
+            value: numberValue(salaryValue.value),
+            unitText: stringValue(salaryValue.unitText),
+          },
+        }
+      : undefined,
+  }
+}
+
 export function normalizeDescription(value: string | undefined) {
   if (!value) return undefined
   const textarea = document.createElement("textarea")
@@ -70,15 +140,13 @@ function parseJsonLd(document: Document) {
       const parsed = JSON.parse(node.textContent || "null") as unknown
       const candidates = Array.isArray(parsed)
         ? parsed
-        : parsed && typeof parsed === "object" && "@graph" in parsed
-          ? (parsed as { "@graph": unknown[] })["@graph"]
+        : Array.isArray(record(parsed)?.["@graph"])
+          ? record(parsed)?.["@graph"] as unknown[]
           : [parsed]
-      const posting = candidates.find((candidate): candidate is JsonLdJobPosting => {
-        if (!candidate || typeof candidate !== "object") return false
-        const type = (candidate as JsonLdJobPosting)["@type"]
-        return type === "JobPosting" || (Array.isArray(type) && type.includes("JobPosting"))
-      })
-      if (posting) return posting
+      for (const candidate of candidates) {
+        const posting = normalizeJsonLdPosting(candidate)
+        if (posting) return posting
+      }
     } catch {
       // LinkedIn can include unrelated malformed JSON-LD; continue to DOM extraction.
     }

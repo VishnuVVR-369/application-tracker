@@ -28,6 +28,42 @@ function structuredCurrencyFixture(currency: unknown) {
   )
 }
 
+function malformedScalarFixture() {
+  const posting = {
+    "@type": "JobPosting",
+    title: 42,
+    description: { html: "invalid" },
+    hiringOrganization: { name: ["invalid"] },
+    jobLocation: {
+      address: {
+        addressLocality: 123,
+        addressRegion: { name: "invalid" },
+        addressCountry: false,
+      },
+    },
+    jobLocationType: ["TELECOMMUTE"],
+    baseSalary: {
+      currency: { code: "INR" },
+      value: {
+        minValue: "2000000",
+        maxValue: { amount: 3000000 },
+        unitText: ["YEAR"],
+      },
+    },
+  }
+  return new DOMParser().parseFromString(`
+    <script type="application/ld+json">${JSON.stringify(posting)}</script>
+    <section data-job-id="4250044444">
+      <div class="job-details-jobs-unified-top-card__company-name">DOM Company</div>
+      <div class="job-details-jobs-unified-top-card__job-title"><h1>DOM Engineer</h1></div>
+      <div class="job-details-jobs-unified-top-card__primary-description-container"><span class="tvm__text">DOM Location</span></div>
+      <div class="job-details-jobs-unified-top-card__job-insight">Remote</div>
+      <div class="job-details-jobs-unified-top-card__job-insight">₹20L-₹30L per year</div>
+      <article id="job-details"><p>DOM description</p></article>
+    </section>
+  `, "text/html")
+}
+
 describe("LinkedIn extraction", () => {
   it("prefers structured job data on direct job pages", () => {
     const job = extractLinkedInJob(
@@ -124,6 +160,25 @@ describe("LinkedIn extraction", () => {
       )
       expect(job.compensationCurrency).toBe(expected)
     }
+  })
+
+  it("falls back to DOM data for malformed JSON-LD scalars", () => {
+    const job = extractLinkedInJob(
+      malformedScalarFixture(),
+      "https://www.linkedin.com/jobs/view/4250044444/"
+    )
+
+    expect(job).toMatchObject({
+      companyName: "DOM Company",
+      roleTitle: "DOM Engineer",
+      location: "DOM Location",
+      workArrangement: "remote",
+      compensationMin: 2_000_000,
+      compensationMax: 3_000_000,
+      compensationCurrency: "INR",
+      compensationPeriod: "year",
+      jobDescriptionSnapshot: "DOM description",
+    })
   })
 
   it("never takes a job ID from an unrelated search result card", () => {
