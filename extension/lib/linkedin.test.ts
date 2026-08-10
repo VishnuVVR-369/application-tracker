@@ -46,7 +46,7 @@ describe("LinkedIn extraction", () => {
       workArrangement: "remote",
       compensationMin: 2_000_000,
       compensationMax: 3_000_000,
-      compensationCurrency: undefined,
+      compensationCurrency: "INR",
       compensationPeriod: "year",
     })
     expect(job.jobDescriptionSnapshot).toBe("Responsibilities\nOwn APIs\nScale systems")
@@ -63,6 +63,25 @@ describe("LinkedIn extraction", () => {
       compensationCurrency: undefined,
       compensationPeriod: "year",
       compensationNotes: "$100k-$120k per year",
+    })
+    expect(parseCompensation("¥10m-¥12m per year")).toEqual({
+      compensationMin: 10_000_000,
+      compensationMax: 12_000_000,
+      compensationCurrency: undefined,
+      compensationPeriod: "year",
+      compensationNotes: "¥10m-¥12m per year",
+    })
+  })
+
+  it("preserves explicit currency symbols", () => {
+    expect(parseCompensation("₹20L-₹30L per year")).toMatchObject({
+      compensationCurrency: "INR",
+    })
+    expect(parseCompensation("€90k-€100k per year")).toMatchObject({
+      compensationCurrency: "EUR",
+    })
+    expect(parseCompensation("£80k-£95k per year")).toMatchObject({
+      compensationCurrency: "GBP",
     })
   })
 

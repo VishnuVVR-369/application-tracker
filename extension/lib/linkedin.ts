@@ -20,6 +20,12 @@ type JsonLdJobPosting = {
 
 const BLOCK_TAGS = /<\/?(?:p|div|h[1-6]|li|ul|ol|br|section|article)\b[^>]*>/gi
 const TAGS = /<[^>]+>/g
+const EXPLICIT_CURRENCY_SYMBOLS: Record<string, string> = {
+  "€": "EUR",
+  "£": "GBP",
+  "₹": "INR",
+}
+
 function text(element: Element | null) {
   return element?.textContent?.replace(/\s+/g, " ").trim() || undefined
 }
@@ -155,6 +161,14 @@ function periodFromUnit(value: string | undefined): CompensationPeriod | undefin
   return undefined
 }
 
+function explicitCurrencyCode(value: string | undefined) {
+  if (!value) return undefined
+  const code = value.match(/\b(USD|EUR|GBP|INR|CAD|AUD|JPY)\b/i)?.[1]?.toUpperCase()
+  if (code) return code
+  return Object.entries(EXPLICIT_CURRENCY_SYMBOLS)
+    .find(([symbol]) => value.includes(symbol))?.[1]
+}
+
 function compensationFromJsonLd(posting: JsonLdJobPosting | undefined) {
   const salary = posting?.baseSalary
   const value = salary?.value
@@ -165,7 +179,7 @@ function compensationFromJsonLd(posting: JsonLdJobPosting | undefined) {
   return {
     compensationMin: min,
     compensationMax: max,
-    compensationCurrency: salary.currency?.toUpperCase(),
+    compensationCurrency: explicitCurrencyCode(salary.currency),
     compensationPeriod: periodFromUnit(value.unitText),
   }
 }
@@ -187,7 +201,7 @@ function parseAmount(raw: string) {
 
 export function parseCompensation(value: string | undefined) {
   if (!value) return {}
-  const code = value.match(/\b(USD|EUR|GBP|INR|CAD|AUD|JPY)\b/i)?.[1]?.toUpperCase()
+  const code = explicitCurrencyCode(value)
   const period = periodFromUnit(value) ?? (/\/(?:yr|year)\b/i.test(value) ? "year" : /\/(?:hr|hour)\b/i.test(value) ? "hour" : undefined)
   const amountMatches = [...value.matchAll(/(?:[$€£₹¥]|\b(?:USD|EUR|GBP|INR|CAD|AUD|JPY)\b)?\s*(\d[\d,.]*\s*[kKmMlL]?)/gi)]
     .map((match) => parseAmount(match[1] ?? ""))
