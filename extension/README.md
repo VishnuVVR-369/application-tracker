@@ -35,7 +35,7 @@ The production tracker URL is prefilled. `http://localhost:3000` is accepted for
 
 On a supported LinkedIn job page, use **Add to Tracker** beside the job actions. If LinkedIn changes that area, use the extension toolbar popup and choose **Capture current LinkedIn job**.
 
-The preview requires a LinkedIn job ID, posting URL, company, and role. It defaults to **Saved**; select **Already applied today** to create an Applied record using your tracker timezone. All extracted identity and compensation fields can be edited before confirmation. Nothing is submitted to Way2More until **Add to Tracker** is pressed.
+The preview requires a LinkedIn job ID, posting URL, company, and role. It defaults to **Saved**; select **Already applied today** to create an Applied record using your local timezone stored by Way2More. All extracted identity and compensation fields can be edited before confirmation. Currency remains blank unless LinkedIn explicitly provides one. Nothing is submitted to Way2More until **Add to Tracker** is pressed.
 
 Duplicate LinkedIn job IDs and canonical URLs return the existing application. The job ID and posting URL must identify the same LinkedIn job. **Refresh job details** stores the latest extension extraction as a separate, read-only snapshot shown on the application detail page. It never overwrites or clears user-managed application fields, and resume match analysis continues to use the application-owned job description.
 
@@ -60,7 +60,7 @@ There is no analytics or remote crash telemetry. Local diagnostics contain only 
 
 ## Disconnect and uninstall
 
-**Disconnect** in extension options clears the tracker URL, token, cached state, and diagnostics from the current Chrome profile. Then revoke the named token in Way2More Settings. Before uninstalling the extension, revoke its token as well; Chrome cannot reliably revoke a server token during uninstall.
+**Disconnect** in extension options clears the tracker URL, token, and diagnostics from the current Chrome profile. Then revoke the named token in Way2More Settings. Before uninstalling the extension, revoke its token as well; Chrome cannot reliably revoke a server token during uninstall.
 
 ## Architecture
 
@@ -72,7 +72,7 @@ LinkedIn content script (Shadow DOM preview)
   -> applications + stage/activity/resume-link records
 ```
 
-The API supports only connection testing, single-job lookup/create, allowlisted snapshot refresh, and short same-token undo/archive. It cannot list the pipeline or read notes, contacts, or resumes. Requests are idempotent and limited to 30 per token per minute.
+The API supports only connection testing, single-job lookup/create, allowlisted snapshot refresh, and a server-enforced 10-second same-token undo/archive. It cannot list the pipeline or read notes, contacts, or resumes. Create requests are duplicate-safe, and all operations are limited to 30 per token per minute.
 
 ## Manual end-to-end checklist
 
