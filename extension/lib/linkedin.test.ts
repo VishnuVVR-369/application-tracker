@@ -12,6 +12,22 @@ function fixture(name: string) {
   return new DOMParser().parseFromString(html, "text/html")
 }
 
+function structuredCurrencyFixture(currency: string) {
+  const posting = {
+    "@type": "JobPosting",
+    title: "Engineer",
+    hiringOrganization: { name: "Example" },
+    baseSalary: {
+      currency,
+      value: { minValue: 100_000, maxValue: 120_000, unitText: "YEAR" },
+    },
+  }
+  return new DOMParser().parseFromString(
+    `<script type="application/ld+json">${JSON.stringify(posting)}</script>`,
+    "text/html"
+  )
+}
+
 describe("LinkedIn extraction", () => {
   it("prefers structured job data on direct job pages", () => {
     const job = extractLinkedInJob(
@@ -83,6 +99,28 @@ describe("LinkedIn extraction", () => {
     expect(parseCompensation("£80k-£95k per year")).toMatchObject({
       compensationCurrency: "GBP",
     })
+  })
+
+  it("normalizes explicit JSON-LD currency codes conservatively", () => {
+    for (const [currency, expected] of [
+      [" chf ", "CHF"],
+      ["sgd", "SGD"],
+      ["NZD", "NZD"],
+      ["AED", "AED"],
+      ["CNY", "CNY"],
+      ["US dollars", undefined],
+      ["US", undefined],
+      ["123", undefined],
+      ["ZZZ", undefined],
+      ["$", undefined],
+      ["₹", "INR"],
+    ] as const) {
+      const job = extractLinkedInJob(
+        structuredCurrencyFixture(currency),
+        "https://www.linkedin.com/jobs/view/4250033333/"
+      )
+      expect(job.compensationCurrency).toBe(expected)
+    }
   })
 
   it("never takes a job ID from an unrelated search result card", () => {

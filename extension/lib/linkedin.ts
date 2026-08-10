@@ -25,6 +25,7 @@ const EXPLICIT_CURRENCY_SYMBOLS: Record<string, string> = {
   "£": "GBP",
   "₹": "INR",
 }
+const ISO_CURRENCY_CODES = new Set(Intl.supportedValuesOf("currency"))
 
 function text(element: Element | null) {
   return element?.textContent?.replace(/\s+/g, " ").trim() || undefined
@@ -161,12 +162,20 @@ function periodFromUnit(value: string | undefined): CompensationPeriod | undefin
   return undefined
 }
 
-function explicitCurrencyCode(value: string | undefined) {
+function currencyCodeFromText(value: string | undefined) {
   if (!value) return undefined
   const code = value.match(/\b(USD|EUR|GBP|INR|CAD|AUD|JPY)\b/i)?.[1]?.toUpperCase()
   if (code) return code
   return Object.entries(EXPLICIT_CURRENCY_SYMBOLS)
     .find(([symbol]) => value.includes(symbol))?.[1]
+}
+
+function structuredCurrencyCode(value: string | undefined) {
+  const normalized = value?.trim().toUpperCase()
+  if (normalized && /^[A-Z]{3}$/.test(normalized) && ISO_CURRENCY_CODES.has(normalized)) {
+    return normalized
+  }
+  return currencyCodeFromText(value)
 }
 
 function compensationFromJsonLd(posting: JsonLdJobPosting | undefined) {
@@ -179,7 +188,7 @@ function compensationFromJsonLd(posting: JsonLdJobPosting | undefined) {
   return {
     compensationMin: min,
     compensationMax: max,
-    compensationCurrency: explicitCurrencyCode(salary.currency),
+    compensationCurrency: structuredCurrencyCode(salary.currency),
     compensationPeriod: periodFromUnit(value.unitText),
   }
 }
@@ -201,7 +210,7 @@ function parseAmount(raw: string) {
 
 export function parseCompensation(value: string | undefined) {
   if (!value) return {}
-  const code = explicitCurrencyCode(value)
+  const code = currencyCodeFromText(value)
   const period = periodFromUnit(value) ?? (/\/(?:yr|year)\b/i.test(value) ? "year" : /\/(?:hr|hour)\b/i.test(value) ? "hour" : undefined)
   const amountMatches = [...value.matchAll(/(?:[$€£₹¥]|\b(?:USD|EUR|GBP|INR|CAD|AUD|JPY)\b)?\s*(\d[\d,.]*\s*[kKmMlL]?)/gi)]
     .map((match) => parseAmount(match[1] ?? ""))
