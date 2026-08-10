@@ -12,7 +12,7 @@ function fixture(name: string) {
   return new DOMParser().parseFromString(html, "text/html")
 }
 
-function structuredCurrencyFixture(currency: string) {
+function structuredCurrencyFixture(currency: unknown) {
   const posting = {
     "@type": "JobPosting",
     title: "Engineer",
@@ -114,6 +114,9 @@ describe("LinkedIn extraction", () => {
       ["ZZZ", undefined],
       ["$", undefined],
       ["₹", "INR"],
+      [840, undefined],
+      [{ code: "USD" }, undefined],
+      [null, undefined],
     ] as const) {
       const job = extractLinkedInJob(
         structuredCurrencyFixture(currency),

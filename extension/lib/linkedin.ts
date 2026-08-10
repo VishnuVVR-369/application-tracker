@@ -13,7 +13,7 @@ type JsonLdJobPosting = {
   jobLocation?: { address?: { addressLocality?: string; addressRegion?: string; addressCountry?: string } } | Array<{ address?: { addressLocality?: string; addressRegion?: string; addressCountry?: string } }>
   jobLocationType?: string
   baseSalary?: {
-    currency?: string
+    currency?: unknown
     value?: { minValue?: number; maxValue?: number; value?: number; unitText?: string }
   }
 }
@@ -170,8 +170,9 @@ function currencyCodeFromText(value: string | undefined) {
     .find(([symbol]) => value.includes(symbol))?.[1]
 }
 
-function structuredCurrencyCode(value: string | undefined) {
-  const normalized = value?.trim().toUpperCase()
+function structuredCurrencyCode(value: unknown) {
+  if (typeof value !== "string") return undefined
+  const normalized = value.trim().toUpperCase()
   if (normalized && /^[A-Z]{3}$/.test(normalized) && ISO_CURRENCY_CODES.has(normalized)) {
     return normalized
   }
