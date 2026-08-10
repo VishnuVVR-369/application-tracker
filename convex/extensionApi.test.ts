@@ -127,6 +127,25 @@ describe("extension API", () => {
       notes: "Follow up with the hiring team.",
     })
     expect(stored?.jobDescriptionSnapshot).toBe("About the role\nBuild reliable systems.")
+    expect(stored?.extensionCaptureSnapshot).toMatchObject({
+      jobId: "4250012345",
+      companyName: "Acme",
+      roleTitle: "Software Engineer",
+      compensationCurrency: "INR",
+    })
+
+    await t.run((ctx) => ctx.db.patch(created.application.id, {
+      postingUrl: "https://jobs.example.com/user-managed-posting",
+      postingUrlCanonical: "https://jobs.example.com/user-managed-posting",
+      location: "User-managed location",
+      workArrangement: "onsite",
+      compensationMin: 4_000_000,
+      compensationMax: 5_000_000,
+      compensationCurrency: "CAD",
+      compensationPeriod: "contract",
+      compensationNotes: "User-managed compensation",
+      jobDescriptionSnapshot: "User-managed description",
+    }))
 
     const refreshed = await t.mutation(internal.extensionApi.executeInternal, {
       tokenHash: "b".repeat(64),
@@ -151,14 +170,27 @@ describe("extension API", () => {
     expect(updated).toMatchObject({
       companyName: "Acme",
       roleTitle: "Software Engineer",
-      postingCompanySnapshot: "Acme Incorporated",
-      postingTitleSnapshot: "Senior Software Engineer",
+      postingCompanySnapshot: "Acme",
+      postingTitleSnapshot: "Software Engineer",
+      postingUrl: "https://jobs.example.com/user-managed-posting",
+      location: "User-managed location",
+      workArrangement: "onsite",
+      compensationMin: 4_000_000,
+      compensationMax: 5_000_000,
+      compensationCurrency: "CAD",
+      compensationPeriod: "contract",
+      compensationNotes: "User-managed compensation",
+      jobDescriptionSnapshot: "User-managed description",
+      notes: "Follow up with the hiring team.",
+      stage: "saved",
+    })
+    expect(updated?.extensionCaptureSnapshot).toMatchObject({
+      companyName: "Acme Incorporated",
+      roleTitle: "Senior Software Engineer",
       location: "Remote",
       workArrangement: "remote",
       compensationNotes: "Updated range",
       jobDescriptionSnapshot: "Updated description",
-      notes: "Follow up with the hiring team.",
-      stage: "saved",
     })
 
     await expect(
@@ -257,6 +289,101 @@ describe("extension API", () => {
     expect(undone.status).toBe("archived")
     if (!("application" in undone) || !undone.application) throw new Error("Expected archived application")
     expect(undone.application.archived).toBe(true)
+  })
+
+  it("rejects undo after the ten-second server window", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-10T10:00:00.000Z"))
+    const { t, authed } = setup()
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    await authed.mutation(api.extensionTokens.create, {
+      name: "Personal Chrome",
+      tokenHash: "a".repeat(64),
+      tokenPrefix: "wat_example7",
+    })
+    const created = await t.mutation(internal.extensionApi.executeInternal, {
+      tokenHash: "a".repeat(64),
+      operation: {
+        type: "create",
+        capture: {
+          jobId: "4250088888",
+          postingUrl: "https://www.linkedin.com/jobs/view/4250088888/",
+          companyName: "Example",
+          roleTitle: "Engineer",
+          stage: "saved",
+        },
+      },
+    })
+    if (!("application" in created) || !created.application) throw new Error("Expected application")
+
+    vi.advanceTimersByTime(10_001)
+    await expect(
+      t.mutation(internal.extensionApi.executeInternal, {
+        tokenHash: "a".repeat(64),
+        operation: { type: "undo", applicationId: created.application.id },
+      })
+    ).rejects.toThrow("UNDO_NOT_ALLOWED")
+  })
+
+  it("uses the user's local calendar date for applied captures", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-10T20:00:00.000Z"))
+    const { t, authed } = setup()
+    await authed.mutation(api.users.ensureCurrent, { timezone: "Asia/Kolkata" })
+    await authed.mutation(api.extensionTokens.create, {
+      name: "Personal Chrome",
+      tokenHash: "9".repeat(64),
+      tokenPrefix: "wat_example8",
+    })
+    const created = await t.mutation(internal.extensionApi.executeInternal, {
+      tokenHash: "9".repeat(64),
+      operation: {
+        type: "create",
+        capture: {
+          jobId: "4250088889",
+          postingUrl: "https://www.linkedin.com/jobs/view/4250088889/",
+          companyName: "Example",
+          roleTitle: "Engineer",
+          stage: "applied",
+        },
+      },
+    })
+    if (!("application" in created) || !created.application) throw new Error("Expected application")
+
+    expect(created.application.dateAppliedDate).toBe("2026-08-11")
+    expect(created.application.dateSavedDate).toBe("2026-08-11")
+  })
+
+  it("preserves an unknown capture currency", async () => {
+    const { t, authed } = setup()
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    await authed.mutation(api.extensionTokens.create, {
+      name: "Personal Chrome",
+      tokenHash: "8".repeat(64),
+      tokenPrefix: "wat_example9",
+    })
+    const created = await t.mutation(internal.extensionApi.executeInternal, {
+      tokenHash: "8".repeat(64),
+      operation: {
+        type: "create",
+        capture: {
+          jobId: "4250088890",
+          postingUrl: "https://www.linkedin.com/jobs/view/4250088890/",
+          companyName: "Example",
+          roleTitle: "Engineer",
+          stage: "saved",
+          compensationMin: 100_000,
+          compensationMax: 120_000,
+          compensationPeriod: "year",
+          compensationNotes: "$100k-$120k per year",
+        },
+      },
+    })
+    if (!("application" in created) || !created.application) throw new Error("Expected application")
+
+    const stored = await t.run((ctx) => ctx.db.get(created.application.id))
+    expect(stored?.compensationCurrency).toBeUndefined()
+    expect(stored?.extensionCaptureSnapshot?.compensationCurrency).toBeUndefined()
   })
 
   it("enforces the per-token request limit", async () => {

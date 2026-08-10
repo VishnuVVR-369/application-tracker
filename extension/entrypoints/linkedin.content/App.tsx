@@ -30,6 +30,21 @@ function applicationUrl(trackerUrl: string, applicationId: string) {
   return `${trackerUrl}/app/applications/${encodeURIComponent(applicationId)}`
 }
 
+function validPostingUrl(value: string) {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
+
+function canSubmit(job: CapturedJob) {
+  return /^\d{5,30}$/.test(job.jobId.trim()) &&
+    validPostingUrl(job.postingUrl) &&
+    Boolean(job.companyName.trim()) &&
+    Boolean(job.roleTitle.trim())
+}
+
 export function CaptureApp({ registerOpen }: CaptureAppProps) {
   const [open, setOpen] = React.useState(false)
   const [job, setJob] = React.useState(() => extractLinkedInJob(document))
@@ -67,7 +82,7 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
   }
 
   async function submit() {
-    if (!job.companyName.trim() || !job.roleTitle.trim()) return
+    if (!canSubmit(job)) return
     setPending(true)
     setError("")
     try {
@@ -207,6 +222,21 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
 
               <div className="form-grid">
                 <InputField
+                  label="Job ID"
+                  required
+                  value={job.jobId}
+                  aria-invalid={!/^\d{5,30}$/.test(job.jobId.trim())}
+                  onChange={(event) => update("jobId", event.target.value)}
+                />
+                <InputField
+                  label="Posting URL"
+                  required
+                  type="url"
+                  value={job.postingUrl}
+                  aria-invalid={!validPostingUrl(job.postingUrl)}
+                  onChange={(event) => update("postingUrl", event.target.value)}
+                />
+                <InputField
                   label="Company"
                   required
                   value={job.companyName}
@@ -245,6 +275,37 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
                       <option value="onsite">Onsite</option>
                     </select>
                   </label>
+                  <InputField
+                    label="Minimum compensation"
+                    type="number"
+                    min="0"
+                    value={job.compensationMin ?? ""}
+                    onChange={(event) => update("compensationMin", event.target.value === "" ? undefined : Number(event.target.value))}
+                  />
+                  <InputField
+                    label="Maximum compensation"
+                    type="number"
+                    min="0"
+                    value={job.compensationMax ?? ""}
+                    onChange={(event) => update("compensationMax", event.target.value === "" ? undefined : Number(event.target.value))}
+                  />
+                  <InputField
+                    label="Currency"
+                    value={job.compensationCurrency ?? ""}
+                    onChange={(event) => update("compensationCurrency", event.target.value.trim() || undefined)}
+                  />
+                  <label className="field">
+                    <span>Compensation period</span>
+                    <select value={job.compensationPeriod ?? ""} onChange={(event) => update("compensationPeriod", (event.target.value || undefined) as CapturedJob["compensationPeriod"])}>
+                      <option value="">Not specified</option>
+                      <option value="hour">Hourly</option>
+                      <option value="day">Daily</option>
+                      <option value="month">Monthly</option>
+                      <option value="year">Yearly</option>
+                      <option value="contract">Contract</option>
+                      <option value="unknown">Unknown</option>
+                    </select>
+                  </label>
                   <InputField label="Compensation shown" value={job.compensationNotes ?? ""} onChange={(event) => update("compensationNotes", event.target.value || undefined)} />
                   <label className="field full">
                     <span>Job description</span>
@@ -272,7 +333,7 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending || !job.companyName.trim() || !job.roleTitle.trim()}
+                  disabled={pending || !canSubmit(job)}
                   onClick={() => void submit()}
                 >
                   {pending ? "Adding…" : "Add to Tracker"}

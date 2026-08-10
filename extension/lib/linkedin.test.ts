@@ -46,7 +46,7 @@ describe("LinkedIn extraction", () => {
       workArrangement: "remote",
       compensationMin: 2_000_000,
       compensationMax: 3_000_000,
-      compensationCurrency: "INR",
+      compensationCurrency: undefined,
       compensationPeriod: "year",
     })
     expect(job.jobDescriptionSnapshot).toBe("Responsibilities\nOwn APIs\nScale systems")
@@ -57,5 +57,27 @@ describe("LinkedIn extraction", () => {
     expect(parseCompensation("Competitive compensation based on experience")).toEqual({
       compensationNotes: "Competitive compensation based on experience",
     })
+    expect(parseCompensation("$100k-$120k per year")).toEqual({
+      compensationMin: 100_000,
+      compensationMax: 120_000,
+      compensationCurrency: undefined,
+      compensationPeriod: "year",
+      compensationNotes: "$100k-$120k per year",
+    })
+  })
+
+  it("never takes a job ID from an unrelated search result card", () => {
+    const document = new DOMParser().parseFromString(`
+      <main>
+        <article data-job-id="4250011111">Unrelated result</article>
+        <section class="jobs-search__job-details--container" data-job-id="4250022222">
+          <div class="job-details-jobs-unified-top-card__job-title"><h1>Selected role</h1></div>
+          <div class="job-details-jobs-unified-top-card__company-name">Selected company</div>
+        </section>
+      </main>
+    `, "text/html")
+
+    expect(extractLinkedInJob(document, "https://www.linkedin.com/jobs/search/").jobId)
+      .toBe("4250022222")
   })
 })

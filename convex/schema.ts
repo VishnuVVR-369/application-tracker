@@ -86,6 +86,22 @@ export const compensationPeriod = v.union(
   v.literal("unknown")
 )
 
+export const extensionCaptureSnapshot = v.object({
+  jobId: v.string(),
+  postingUrl: v.string(),
+  companyName: v.string(),
+  roleTitle: v.string(),
+  location: v.optional(v.string()),
+  workArrangement: v.optional(workArrangement),
+  compensationMin: v.optional(v.number()),
+  compensationMax: v.optional(v.number()),
+  compensationCurrency: v.optional(v.string()),
+  compensationPeriod: v.optional(compensationPeriod),
+  compensationNotes: v.optional(v.string()),
+  jobDescriptionSnapshot: v.optional(v.string()),
+  capturedAt: v.number(),
+})
+
 export const offerDecision = v.union(
   v.literal("pending"),
   v.literal("accepted"),
@@ -351,6 +367,7 @@ export default defineSchema({
     sourceSystem: v.optional(sourceSystem),
     sourceExternalId: v.optional(v.string()),
     sourceExtensionTokenId: v.optional(v.id("extensionTokens")),
+    extensionCaptureSnapshot: v.optional(extensionCaptureSnapshot),
     dateSavedDate: v.optional(v.string()),
     dateAppliedDate: v.optional(v.string()),
     stage: applicationStage,

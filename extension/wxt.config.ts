@@ -9,7 +9,6 @@ export default defineConfig({
     minimum_chrome_version: "120",
     permissions: ["activeTab", "storage"],
     host_permissions: [
-      "https://www.linkedin.com/*",
       "https://way2more.vercel.app/*",
       "http://localhost:3000/*"
     ],

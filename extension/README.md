@@ -35,15 +35,15 @@ The production tracker URL is prefilled. `http://localhost:3000` is accepted for
 
 On a supported LinkedIn job page, use **Add to Tracker** beside the job actions. If LinkedIn changes that area, use the extension toolbar popup and choose **Capture current LinkedIn job**.
 
-The preview requires company and role. It defaults to **Saved**; select **Already applied today** to create an Applied record. Optional extracted fields can be edited before confirmation. Nothing is submitted to Way2More until **Add to Tracker** is pressed.
+The preview requires a LinkedIn job ID, posting URL, company, and role. It defaults to **Saved**; select **Already applied today** to create an Applied record using your tracker timezone. All extracted identity and compensation fields can be edited before confirmation. Nothing is submitted to Way2More until **Add to Tracker** is pressed.
 
-Duplicate LinkedIn job IDs and canonical URLs return the existing application. **Refresh job details** updates only posting snapshots, location, explicit work arrangement, compensation, description, capture time, and canonical URL. It never overwrites user-managed company, role, stage, dates, notes, resume, referral state, or application type.
+Duplicate LinkedIn job IDs and canonical URLs return the existing application. **Refresh job details** stores the latest extension extraction as a separate snapshot. It never overwrites or clears user-managed application fields.
 
 ## Permissions and privacy
 
 - `storage`: stores the tracker URL, access token, and bounded local diagnostics in `chrome.storage.local`; the token is never placed in Chrome sync storage.
 - `activeTab`: lets the toolbar popup open the capture UI on the current LinkedIn tab.
-- Host access is limited to LinkedIn jobs, `way2more.vercel.app`, and localhost development.
+- The declared LinkedIn jobs content script is limited to `linkedin.com/jobs/*`; API host access is limited to `way2more.vercel.app` and localhost development.
 
 The content script reads only loaded LinkedIn job-detail DOM and structured data. It does not read LinkedIn credentials, messages, contacts, profiles, or unrelated browsing. It never clicks Apply or follows an external application redirect. Captured descriptions are normalized to plain text.
 

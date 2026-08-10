@@ -354,6 +354,7 @@ type ApplicationPatchInput = {
   sourceSystem?: Doc<"applications">["sourceSystem"]
   sourceExternalId?: string
   sourceExtensionTokenId?: Id<"extensionTokens">
+  extensionCaptureSnapshot?: Doc<"applications">["extensionCaptureSnapshot"]
   dateSavedDate?: string
   dateAppliedDate?: string
   stage?: Doc<"applications">["stage"]
@@ -412,6 +413,7 @@ function buildApplicationPatch(args: ApplicationPatchInput) {
     sourceSystem: args.sourceSystem,
     sourceExternalId: args.sourceExternalId,
     sourceExtensionTokenId: args.sourceExtensionTokenId,
+    extensionCaptureSnapshot: args.extensionCaptureSnapshot,
     dateSavedDate: args.dateSavedDate,
     dateAppliedDate: args.dateAppliedDate,
     stage: args.stage,
@@ -476,7 +478,11 @@ export async function createApplicationRecord(
       currentStageEnteredAt: now,
       referralStatus: args.referralStatus ?? "not_checked",
       sourceSystem: args.sourceSystem ?? "manual",
-      compensationCurrency: args.compensationCurrency ?? "USD",
+      ...(args.compensationCurrency
+        ? { compensationCurrency: args.compensationCurrency }
+        : args.sourceSystem === "browser_extension"
+          ? {}
+          : { compensationCurrency: "USD" }),
       qualityChecks: await getQualitySnapshot(ctx, user._id),
       archived: false,
       createdAt: now,

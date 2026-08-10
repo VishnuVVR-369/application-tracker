@@ -8,7 +8,7 @@ import { canonicalizeUrl } from "./model"
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_REQUESTS = 30
-const UNDO_WINDOW_MS = 60_000
+const UNDO_WINDOW_MS = 10_000
 const MAX_DESCRIPTION_LENGTH = 100_000
 
 function requiredText(value: string, label: string, maxLength: number) {
@@ -152,7 +152,7 @@ function applicationResult(application: Doc<"applications">) {
   }
 }
 
-function snapshotPatch(args: {
+function captureSnapshot(args: {
   jobId: string
   postingUrl: string
   companyName: string
@@ -167,24 +167,52 @@ function snapshotPatch(args: {
   jobDescriptionSnapshot?: string
 }) {
   const jobId = linkedInJobId(args.jobId, args.postingUrl)
+  const location = optionalText(args.location, 300)
+  const compensationCurrency = optionalText(args.compensationCurrency, 12)?.toUpperCase()
+  const compensationNotes = optionalText(args.compensationNotes, 2_000)
+  const jobDescriptionSnapshot = plainTextDescription(args.jobDescriptionSnapshot)
   return {
+    jobId,
     postingUrl: canonicalLinkedInUrl(jobId),
-    postingUrlCanonical: canonicalLinkedInUrl(jobId),
-    postingTitleSnapshot: requiredText(args.roleTitle, "role_title", 300),
-    postingCompanySnapshot: requiredText(args.companyName, "company_name", 300),
-    postingCapturedAt: Date.now(),
-    source: "linkedin" as const,
-    sourceSystem: "browser_extension" as const,
-    sourceExternalId: jobId,
-    location: optionalText(args.location, 300),
-    workArrangement: args.workArrangement,
-    compensationMin: args.compensationMin,
-    compensationMax: args.compensationMax,
-    compensationCurrency: optionalText(args.compensationCurrency, 12)?.toUpperCase(),
-    compensationPeriod: args.compensationPeriod,
-    compensationNotes: optionalText(args.compensationNotes, 2_000),
-    jobDescriptionSnapshot: plainTextDescription(args.jobDescriptionSnapshot),
+    roleTitle: requiredText(args.roleTitle, "role_title", 300),
+    companyName: requiredText(args.companyName, "company_name", 300),
+    ...(location === undefined ? {} : { location }),
+    ...(args.workArrangement === undefined
+      ? {}
+      : { workArrangement: args.workArrangement }),
+    ...(args.compensationMin === undefined
+      ? {}
+      : { compensationMin: args.compensationMin }),
+    ...(args.compensationMax === undefined
+      ? {}
+      : { compensationMax: args.compensationMax }),
+    ...(compensationCurrency === undefined ? {} : { compensationCurrency }),
+    ...(args.compensationPeriod === undefined
+      ? {}
+      : { compensationPeriod: args.compensationPeriod }),
+    ...(compensationNotes === undefined ? {} : { compensationNotes }),
+    ...(jobDescriptionSnapshot === undefined ? {} : { jobDescriptionSnapshot }),
+    capturedAt: Date.now(),
   }
+}
+
+async function localDateKey(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  timestamp: number
+) {
+  const settings = await ctx.db
+    .query("userSettings")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique()
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: settings?.timezone ?? "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(timestamp)
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
 }
 
 export const executeInternal = internalMutation({
@@ -213,22 +241,40 @@ export const executeInternal = internalMutation({
     }
 
     if (args.operation.type === "create") {
-      const patch = snapshotPatch(args.operation.capture)
+      const snapshot = captureSnapshot(args.operation.capture)
       const existing = await findExisting(
         ctx,
         user._id,
-        patch.sourceExternalId,
-        patch.postingUrl
+        snapshot.jobId,
+        snapshot.postingUrl
       )
       if (existing) {
         return { status: "exists" as const, application: applicationResult(existing) }
       }
 
+      const today = await localDateKey(ctx, user._id, Date.now())
       const applicationId = await createApplicationRecord(ctx, user, {
-        ...patch,
+        postingUrl: snapshot.postingUrl,
+        postingTitleSnapshot: snapshot.roleTitle,
+        postingCompanySnapshot: snapshot.companyName,
+        postingCapturedAt: snapshot.capturedAt,
+        location: snapshot.location,
+        workArrangement: snapshot.workArrangement,
+        compensationMin: snapshot.compensationMin,
+        compensationMax: snapshot.compensationMax,
+        compensationCurrency: snapshot.compensationCurrency,
+        compensationPeriod: snapshot.compensationPeriod,
+        compensationNotes: snapshot.compensationNotes,
+        jobDescriptionSnapshot: snapshot.jobDescriptionSnapshot,
+        source: "linkedin",
+        sourceSystem: "browser_extension",
+        sourceExternalId: snapshot.jobId,
+        extensionCaptureSnapshot: snapshot,
         companyName: requiredText(args.operation.capture.companyName, "company_name", 300),
         roleTitle: requiredText(args.operation.capture.roleTitle, "role_title", 300),
         stage: args.operation.capture.stage,
+        dateSavedDate: today,
+        dateAppliedDate: args.operation.capture.stage === "applied" ? today : undefined,
         notes: optionalText(args.operation.capture.notes, 10_000),
         sourceExtensionTokenId: token._id,
       })
@@ -245,16 +291,16 @@ export const executeInternal = internalMutation({
     }
 
     if (args.operation.type === "refresh") {
-      const patch = snapshotPatch(args.operation.capture)
+      const snapshot = captureSnapshot(args.operation.capture)
       const currentJobId = maybeLinkedInJobId(
         application.sourceExternalId ?? "",
         application.postingUrl ?? ""
       )
-      if (!currentJobId || currentJobId !== patch.sourceExternalId) {
+      if (!currentJobId || currentJobId !== snapshot.jobId) {
         throw new Error("APPLICATION_JOB_MISMATCH")
       }
       await ctx.db.patch(application._id, {
-        ...patch,
+        extensionCaptureSnapshot: snapshot,
         updatedAt: Date.now(),
         lastActivityAt: Date.now(),
       })

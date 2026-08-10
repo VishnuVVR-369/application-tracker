@@ -20,14 +20,6 @@ type JsonLdJobPosting = {
 
 const BLOCK_TAGS = /<\/?(?:p|div|h[1-6]|li|ul|ol|br|section|article)\b[^>]*>/gi
 const TAGS = /<[^>]+>/g
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  "$": "USD",
-  "€": "EUR",
-  "£": "GBP",
-  "₹": "INR",
-  "¥": "JPY",
-}
-
 function text(element: Element | null) {
   return element?.textContent?.replace(/\s+/g, " ").trim() || undefined
 }
@@ -87,12 +79,43 @@ function parseJsonLd(document: Document) {
   return undefined
 }
 
-function extractJobId(url: URL, document: Document) {
+function jobIdFromUrl(url: URL) {
   const path = url.pathname.match(/\/jobs\/view\/(?:[^/?#]*-)?(\d{5,30})(?:[/?#]|$)/i)?.[1]
   const query = url.searchParams.get("currentJobId") ?? url.searchParams.get("jobId")
-  const dataId = document.querySelector<HTMLElement>("[data-job-id], [data-occludable-job-id]")?.dataset.jobId ??
-    document.querySelector<HTMLElement>("[data-occludable-job-id]")?.dataset.occludableJobId
-  return [path, query, dataId].find((value) => value && /^\d{5,30}$/.test(value)) || ""
+  return [path, query].find((value) => value && /^\d{5,30}$/.test(value)) || ""
+}
+
+function selectedDetailsRoot(document: Document) {
+  const anchor = document.querySelector([
+    ".job-details-jobs-unified-top-card__job-title",
+    ".jobs-unified-top-card__job-title",
+    ".jobs-details-top-card__job-title",
+    "#job-details",
+    ".jobs-description__content",
+  ].join(", "))
+  return anchor?.closest<HTMLElement>([
+    "[data-job-id]",
+    "[data-occludable-job-id]",
+    ".jobs-search__job-details--container",
+    ".scaffold-layout__detail",
+    ".jobs-details",
+  ].join(", ")) ?? null
+}
+
+function extractJobId(url: URL, document: Document) {
+  const currentUrlJobId = jobIdFromUrl(url)
+  if (currentUrlJobId) return currentUrlJobId
+
+  const detailsRoot = selectedDetailsRoot(document)
+  if (!detailsRoot) return ""
+  const identityElement = detailsRoot.matches("[data-job-id], [data-occludable-job-id]")
+    ? detailsRoot
+    : detailsRoot.querySelector<HTMLElement>("[data-job-id], [data-occludable-job-id]")
+  const dataId = identityElement?.dataset.jobId ?? identityElement?.dataset.occludableJobId
+  if (dataId && /^\d{5,30}$/.test(dataId)) return dataId
+
+  const href = detailsRoot.querySelector<HTMLAnchorElement>('a[href*="/jobs/view/"]')?.href
+  return href ? jobIdFromUrl(new URL(href, url)) : ""
 }
 
 function locationFromJsonLd(posting: JsonLdJobPosting | undefined) {
@@ -164,7 +187,6 @@ function parseAmount(raw: string) {
 
 export function parseCompensation(value: string | undefined) {
   if (!value) return {}
-  const currencyEntry = Object.entries(CURRENCY_SYMBOLS).find(([symbol]) => value.includes(symbol))
   const code = value.match(/\b(USD|EUR|GBP|INR|CAD|AUD|JPY)\b/i)?.[1]?.toUpperCase()
   const period = periodFromUnit(value) ?? (/\/(?:yr|year)\b/i.test(value) ? "year" : /\/(?:hr|hour)\b/i.test(value) ? "hour" : undefined)
   const amountMatches = [...value.matchAll(/(?:[$€£₹¥]|\b(?:USD|EUR|GBP|INR|CAD|AUD|JPY)\b)?\s*(\d[\d,.]*\s*[kKmMlL]?)/gi)]
@@ -176,7 +198,7 @@ export function parseCompensation(value: string | undefined) {
   return {
     compensationMin: amountMatches[0],
     compensationMax: amountMatches[1] ?? amountMatches[0],
-    compensationCurrency: code ?? currencyEntry?.[1],
+    compensationCurrency: code,
     compensationPeriod: period,
     compensationNotes: value.trim(),
   }
