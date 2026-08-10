@@ -14,8 +14,8 @@ export const getContext = internalQuery({
       throw new Error("Application not found")
     }
 
-    const jobDescription = application.jobDescriptionSnapshot?.trim()
-    if (!jobDescription) {
+    const applicationJobDescription = application.jobDescriptionSnapshot?.trim()
+    if (!applicationJobDescription) {
       throw new Error("Save a job description snapshot on this application first.")
     }
 
@@ -29,7 +29,10 @@ export const getContext = internalQuery({
     return {
       companyName: application.companyName,
       roleTitle: application.roleTitle,
-      jobDescription,
+      jobDescription: {
+        source: "application" as const,
+        text: applicationJobDescription,
+      },
       resume: {
         id: resume._id,
         storageId: resume.storageId,

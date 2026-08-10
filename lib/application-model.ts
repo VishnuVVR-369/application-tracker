@@ -158,6 +158,22 @@ export const COMPENSATION_PERIODS = [
 
 export type CompensationPeriod = (typeof COMPENSATION_PERIODS)[number]
 
+export type ExtensionCaptureSnapshot = {
+  jobId: string
+  postingUrl: string
+  companyName: string
+  roleTitle: string
+  location?: string
+  workArrangement?: WorkArrangement
+  compensationMin?: number
+  compensationMax?: number
+  compensationCurrency?: string
+  compensationPeriod?: CompensationPeriod
+  compensationNotes?: string
+  jobDescriptionSnapshot?: string
+  capturedAt: number
+}
+
 export const COMPENSATION_PERIOD_LABELS: Record<CompensationPeriod, string> = {
   hour: "Hourly",
   day: "Daily",
@@ -239,6 +255,7 @@ export type ApplicationRecord = {
   sourceDetail?: string
   sourceSystem?: "manual" | "import" | "browser_extension"
   sourceExternalId?: string
+  extensionCaptureSnapshot?: ExtensionCaptureSnapshot
   dateSavedDate?: string
   dateAppliedDate?: string
   stage: ApplicationStage
@@ -765,27 +782,46 @@ export function getApplicationPrimaryDeadline(application: ApplicationRecord) {
   )
 }
 
-export function formatApplicationSalary(application: ApplicationRecord) {
-  if (application.compensationMin === undefined && application.compensationMax === undefined) {
-    return application.compensationNotes ?? "Not set"
+type CompensationValues = {
+  compensationMin?: number
+  compensationMax?: number
+  compensationCurrency?: string
+  compensationPeriod?: CompensationPeriod
+  compensationNotes?: string
+}
+
+export function formatCompensation(compensation: CompensationValues) {
+  if (compensation.compensationMin === undefined && compensation.compensationMax === undefined) {
+    return compensation.compensationNotes ?? "Not set"
   }
 
-  const currency = application.compensationCurrency && /^[A-Z]{3}$/.test(application.compensationCurrency)
-    ? application.compensationCurrency
-    : "USD"
-  const format = (value: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(value)
+  const currency = compensation.compensationCurrency && /^[A-Z]{3}$/.test(compensation.compensationCurrency)
+    ? compensation.compensationCurrency
+    : undefined
+  if (!currency && compensation.compensationNotes) {
+    return compensation.compensationNotes
+  }
+  const format = currency
+    ? (value: number) => new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      }).format(value)
+    : (value: number) => new Intl.NumberFormat("en-US", {
+        maximumFractionDigits: 0,
+      }).format(value)
 
   const range =
-    application.compensationMin !== undefined && application.compensationMax !== undefined
-      ? `${format(application.compensationMin)} - ${format(application.compensationMax)}`
-      : format(application.compensationMin ?? application.compensationMax ?? 0)
+    compensation.compensationMin !== undefined && compensation.compensationMax !== undefined
+      ? `${format(compensation.compensationMin)} - ${format(compensation.compensationMax)}`
+      : format(compensation.compensationMin ?? compensation.compensationMax ?? 0)
 
-  return application.compensationPeriod && application.compensationPeriod !== "unknown"
-    ? `${range} / ${application.compensationPeriod}`
+  const period = compensation.compensationPeriod && compensation.compensationPeriod !== "unknown"
+    ? `${range} / ${compensation.compensationPeriod}`
     : range
+  return currency ? period : `${period} (currency not specified)`
+}
+
+export function formatApplicationSalary(application: ApplicationRecord) {
+  return formatCompensation(application)
 }

@@ -37,7 +37,7 @@ On a supported LinkedIn job page, use **Add to Tracker** beside the job actions.
 
 The preview requires a LinkedIn job ID, posting URL, company, and role. It defaults to **Saved**; select **Already applied today** to create an Applied record using your tracker timezone. All extracted identity and compensation fields can be edited before confirmation. Nothing is submitted to Way2More until **Add to Tracker** is pressed.
 
-Duplicate LinkedIn job IDs and canonical URLs return the existing application. **Refresh job details** stores the latest extension extraction as a separate snapshot. It never overwrites or clears user-managed application fields.
+Duplicate LinkedIn job IDs and canonical URLs return the existing application. The job ID and posting URL must identify the same LinkedIn job. **Refresh job details** stores the latest extension extraction as a separate, read-only snapshot shown on the application detail page. It never overwrites or clears user-managed application fields, and resume match analysis continues to use the application-owned job description.
 
 ## Permissions and privacy
 

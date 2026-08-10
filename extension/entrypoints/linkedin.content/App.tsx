@@ -30,17 +30,27 @@ function applicationUrl(trackerUrl: string, applicationId: string) {
   return `${trackerUrl}/app/applications/${encodeURIComponent(applicationId)}`
 }
 
-function validPostingUrl(value: string) {
+function postingJobId(value: string) {
   try {
-    return ["http:", "https:"].includes(new URL(value).protocol)
+    const url = new URL(value)
+    if (
+      url.protocol !== "https:" ||
+      (url.hostname !== "linkedin.com" && !url.hostname.endsWith(".linkedin.com"))
+    ) {
+      return undefined
+    }
+    return url.pathname.match(/\/jobs\/view\/(?:[^/?#]*-)?(\d{5,30})(?:[/?#]|$)/i)?.[1] ??
+      url.searchParams.get("currentJobId") ??
+      url.searchParams.get("jobId") ??
+      undefined
   } catch {
-    return false
+    return undefined
   }
 }
 
 function canSubmit(job: CapturedJob) {
   return /^\d{5,30}$/.test(job.jobId.trim()) &&
-    validPostingUrl(job.postingUrl) &&
+    postingJobId(job.postingUrl) === job.jobId.trim() &&
     Boolean(job.companyName.trim()) &&
     Boolean(job.roleTitle.trim())
 }
@@ -225,7 +235,7 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
                   label="Job ID"
                   required
                   value={job.jobId}
-                  aria-invalid={!/^\d{5,30}$/.test(job.jobId.trim())}
+                  aria-invalid={!/^\d{5,30}$/.test(job.jobId.trim()) || postingJobId(job.postingUrl) !== job.jobId.trim()}
                   onChange={(event) => update("jobId", event.target.value)}
                 />
                 <InputField
@@ -233,7 +243,7 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
                   required
                   type="url"
                   value={job.postingUrl}
-                  aria-invalid={!validPostingUrl(job.postingUrl)}
+                  aria-invalid={postingJobId(job.postingUrl) !== job.jobId.trim()}
                   onChange={(event) => update("postingUrl", event.target.value)}
                 />
                 <InputField

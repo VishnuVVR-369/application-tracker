@@ -70,9 +70,13 @@ describe("capture preview", () => {
     `)
 
     fireEvent.change(within(dialog).getByLabelText("Job ID"), { target: { value: "4250099999" } })
+    expect(within(dialog).getByRole("button", { name: "Add to Tracker" }).hasAttribute("disabled"))
+      .toBe(true)
     fireEvent.change(within(dialog).getByLabelText("Posting URL"), {
       target: { value: "https://www.linkedin.com/jobs/view/4250099999/" },
     })
+    expect(within(dialog).getByRole("button", { name: "Add to Tracker" }).hasAttribute("disabled"))
+      .toBe(false)
     fireEvent.click(within(dialog).getByRole("button", { name: /^More details/ }))
     fireEvent.change(within(dialog).getByLabelText("Minimum compensation"), { target: { value: "100000" } })
     fireEvent.change(within(dialog).getByLabelText("Maximum compensation"), { target: { value: "120000" } })

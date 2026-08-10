@@ -57,12 +57,35 @@ function maybeLinkedInJobId(jobId: string, postingUrl: string) {
   return fromPath ?? fromQuery
 }
 
+function linkedInJobIdFromUrl(postingUrl: string) {
+  let url: URL
+  try {
+    url = new URL(postingUrl)
+  } catch {
+    return undefined
+  }
+  if (
+    url.protocol !== "https:" ||
+    (url.hostname !== "linkedin.com" && !url.hostname.endsWith(".linkedin.com"))
+  ) {
+    return undefined
+  }
+  return maybeLinkedInJobId("", url.toString())
+}
+
 function linkedInJobId(jobId: string, postingUrl: string) {
-  const result = maybeLinkedInJobId(jobId, postingUrl)
-  if (!result) {
+  const normalized = jobId.trim()
+  if (!/^\d{5,30}$/.test(normalized)) {
     throw new Error("INVALID_INPUT:job_id")
   }
-  return result
+  const fromUrl = linkedInJobIdFromUrl(postingUrl)
+  if (!fromUrl) {
+    throw new Error("INVALID_INPUT:posting_url")
+  }
+  if (fromUrl !== normalized) {
+    throw new Error("INVALID_INPUT:job_identity")
+  }
+  return normalized
 }
 
 function canonicalLinkedInUrl(jobId: string) {

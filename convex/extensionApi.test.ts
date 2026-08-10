@@ -193,6 +193,29 @@ describe("extension API", () => {
       jobDescriptionSnapshot: "Updated description",
     })
 
+    const storageId = await authed.run((ctx) =>
+      ctx.storage.store(new Blob(["resume"], { type: "application/pdf" }))
+    )
+    const resumeId = await authed.mutation(api.resumes.create, {
+      label: "Application resume",
+      fileName: "resume.pdf",
+      storageId,
+      mimeType: "application/pdf",
+      sizeBytes: 6,
+      isDefault: false,
+    })
+    await authed.mutation(api.applications.update, {
+      id: created.application.id,
+      currentResumeId: resumeId,
+    })
+    const matchContext = await authed.query(internal.matchAnalysisData.getContext, {
+      applicationId: created.application.id,
+    })
+    expect(matchContext.jobDescription).toEqual({
+      source: "application",
+      text: "User-managed description",
+    })
+
     await expect(
       t.mutation(internal.extensionApi.executeInternal, {
         tokenHash: "b".repeat(64),
@@ -207,6 +230,32 @@ describe("extension API", () => {
         },
       })
     ).rejects.toThrow("APPLICATION_JOB_MISMATCH")
+  })
+
+  it("rejects contradictory LinkedIn identity fields", async () => {
+    const { t, authed } = setup()
+    await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    await authed.mutation(api.extensionTokens.create, {
+      name: "Personal Chrome",
+      tokenHash: "7".repeat(64),
+      tokenPrefix: "wat_identity",
+    })
+
+    await expect(
+      t.mutation(internal.extensionApi.executeInternal, {
+        tokenHash: "7".repeat(64),
+        operation: {
+          type: "create",
+          capture: {
+            jobId: "4250012345",
+            postingUrl: "https://www.linkedin.com/jobs/view/4250099999/",
+            companyName: "Example",
+            roleTitle: "Engineer",
+            stage: "saved",
+          },
+        },
+      })
+    ).rejects.toThrow("INVALID_INPUT:job_identity")
   })
 
   it("detects an existing manually captured LinkedIn URL by job ID", async () => {

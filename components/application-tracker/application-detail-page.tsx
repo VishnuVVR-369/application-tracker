@@ -52,8 +52,10 @@ import {
   STAGE_LABELS,
   WORK_ARRANGEMENT_LABELS,
   formatApplicationSalary,
+  formatCompensation,
   type ApplicationRecord,
   type ApplicationStage,
+  type ExtensionCaptureSnapshot,
 } from "@/lib/application-model"
 import { CONTACT_RELATIONSHIP_LABELS, contactInitials, type ContactRelationship } from "@/lib/contact-model"
 import { daysBetween, formatShortDate } from "@/lib/date-model"
@@ -362,11 +364,18 @@ export function ApplicationDetailPage({ id }: { id: string }) {
                 )}
               </Panel>
 
-              <Panel title="Job description snapshot" icon={FileText}>
+              <Panel title="Application job description" icon={FileText}>
+                <p className="mb-2 text-xs text-ink-500">
+                  Application-owned text used by resume match analysis.
+                </p>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-300">
                   {application.jobDescriptionSnapshot || "No snapshot saved yet."}
                 </p>
               </Panel>
+
+              {application.extensionCaptureSnapshot && (
+                <ExtensionSnapshotPanel snapshot={application.extensionCaptureSnapshot} />
+              )}
 
               <Panel title="Notes" icon={FileText}>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-300">
@@ -845,6 +854,9 @@ function MatchPanel({
         </Button>
       }
     >
+      <p className="mb-3 text-xs text-ink-500">
+        Uses the application-owned job description. The latest LinkedIn extraction remains separate.
+      </p>
       {!analysis ? (
         <p className="text-sm leading-relaxed text-ink-300">
           {canAnalyze
@@ -933,6 +945,39 @@ function MatchPanel({
           </p>
         </div>
       )}
+    </Panel>
+  )
+}
+
+function ExtensionSnapshotPanel({ snapshot }: { snapshot: ExtensionCaptureSnapshot }) {
+  const capturedAt = new Date(snapshot.capturedAt).toISOString()
+  return (
+    <Panel title="Latest LinkedIn extraction" icon={Link2}>
+      <p className="mb-3 text-xs leading-relaxed text-ink-500">
+        Read-only extension data. It does not replace application-owned fields or match-analysis input.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Fact label="Company" value={snapshot.companyName} />
+        <Fact label="Role" value={snapshot.roleTitle} />
+        <Fact label="Location" value={snapshot.location ?? "Not extracted"} />
+        <Fact label="Salary" value={formatCompensation(snapshot)} />
+        <Fact label="Job ID" value={snapshot.jobId} mono />
+        <Fact label="Captured" value={`${capturedAt.slice(0, 16).replace("T", " ")} UTC`} mono />
+      </div>
+      <a
+        href={snapshot.postingUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-flex items-center gap-1.5 text-sm text-brand transition-colors hover:underline"
+      >
+        <ExternalLink className="size-3.5" /> View extracted posting
+      </a>
+      <div className="mt-4 border-t border-line/70 pt-4">
+        <p className="micro-label mb-2">Extracted job description</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-300">
+          {snapshot.jobDescriptionSnapshot || "No description extracted."}
+        </p>
+      </div>
     </Panel>
   )
 }

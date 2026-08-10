@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   APPLICATION_STAGES,
   canMoveApplicationStage,
+  formatApplicationSalary,
   getStageCounts,
   STAGE_LABELS,
   type ApplicationRecord,
@@ -48,5 +49,20 @@ describe("application-model", () => {
         { ...baseApplication, id: "app-3", stage: "applied" },
       ]).applied
     ).toBe(2)
+  })
+
+  it("does not invent a currency for compensation", () => {
+    expect(formatApplicationSalary({
+      ...baseApplication,
+      compensationMin: 100_000,
+      compensationMax: 120_000,
+      compensationPeriod: "year",
+    })).toBe("100,000 - 120,000 / year (currency not specified)")
+    expect(formatApplicationSalary({
+      ...baseApplication,
+      compensationMin: 100_000,
+      compensationMax: 120_000,
+      compensationNotes: "$100k-$120k per year",
+    })).toBe("$100k-$120k per year")
   })
 })
