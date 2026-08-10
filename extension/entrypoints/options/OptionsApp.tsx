@@ -103,7 +103,7 @@ export function OptionsApp() {
         <p>
           The extension reads only LinkedIn job pages after you open them. It sends a reviewed capture only when you press Add to Tracker and never reads LinkedIn messages, contacts, credentials, or unrelated browsing.
         </p>
-        <p className="small">Disconnecting clears the token, tracker URL, cached state, and diagnostics from this Chrome profile. Revoke the named token in Tracker Settings as well.</p>
+        <p className="small">Disconnecting clears the stored tracker connection and diagnostics from this Chrome profile. Revoke the named token in Tracker Settings as well.</p>
       </section>
 
       <section className="card" aria-labelledby="diagnostics-title">
