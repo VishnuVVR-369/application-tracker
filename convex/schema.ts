@@ -86,6 +86,22 @@ export const compensationPeriod = v.union(
   v.literal("unknown")
 )
 
+export const extensionCaptureSnapshot = v.object({
+  jobId: v.string(),
+  postingUrl: v.string(),
+  companyName: v.string(),
+  roleTitle: v.string(),
+  location: v.optional(v.string()),
+  workArrangement: v.optional(workArrangement),
+  compensationMin: v.optional(v.number()),
+  compensationMax: v.optional(v.number()),
+  compensationCurrency: v.optional(v.string()),
+  compensationPeriod: v.optional(compensationPeriod),
+  compensationNotes: v.optional(v.string()),
+  jobDescriptionSnapshot: v.optional(v.string()),
+  capturedAt: v.number(),
+})
+
 export const offerDecision = v.union(
   v.literal("pending"),
   v.literal("accepted"),
@@ -350,6 +366,8 @@ export default defineSchema({
     sourceDetail: v.optional(v.string()),
     sourceSystem: v.optional(sourceSystem),
     sourceExternalId: v.optional(v.string()),
+    sourceExtensionTokenId: v.optional(v.id("extensionTokens")),
+    extensionCaptureSnapshot: v.optional(extensionCaptureSnapshot),
     dateSavedDate: v.optional(v.string()),
     dateAppliedDate: v.optional(v.string()),
     stage: applicationStage,
@@ -401,6 +419,20 @@ export default defineSchema({
       "sourceSystem",
       "sourceExternalId",
     ]),
+
+  extensionTokens: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    tokenHash: v.string(),
+    tokenPrefix: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    rateWindowStartedAt: v.optional(v.number()),
+    rateWindowRequestCount: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_tokenHash", ["tokenHash"]),
 
   applicationStageHistory: defineTable({
     userId: v.id("users"),

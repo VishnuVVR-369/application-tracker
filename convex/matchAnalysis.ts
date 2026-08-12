@@ -192,7 +192,7 @@ export const analyze = action({
       model,
       companyName: context.companyName,
       roleTitle: context.roleTitle,
-      jobDescription: context.jobDescription.slice(0, MAX_INPUT_CHARS),
+      jobDescription: context.jobDescription.text.slice(0, MAX_INPUT_CHARS),
       resumeText: resumeText.slice(0, MAX_INPUT_CHARS),
     })
     const matchedKeywords = analysis.requirements

@@ -29,6 +29,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { EmptyState, PageHeader, Panel } from "./common"
+import { ExtensionAccessPanel } from "./extension-access-panel"
 import { PageSkeleton } from "./skeletons"
 import { useAppData } from "./use-app-data"
 
@@ -195,6 +196,8 @@ export function SettingsPage() {
             </Button>
           </div>
         </Panel>
+
+        <ExtensionAccessPanel />
 
         <Panel title="Application checklist defaults" icon={ListChecks} className="xl:col-span-2">
           <p className="mb-4 text-sm text-ink-300">

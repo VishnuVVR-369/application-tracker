@@ -44,6 +44,7 @@ export function mapApplication(doc: Doc<"applications">): ApplicationRecord {
     sourceDetail: doc.sourceDetail,
     sourceSystem: doc.sourceSystem,
     sourceExternalId: doc.sourceExternalId,
+    extensionCaptureSnapshot: doc.extensionCaptureSnapshot,
     dateSavedDate: doc.dateSavedDate,
     dateAppliedDate: doc.dateAppliedDate,
     stage: doc.stage,
