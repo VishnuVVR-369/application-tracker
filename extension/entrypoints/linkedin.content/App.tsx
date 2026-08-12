@@ -2,13 +2,22 @@ import * as React from "react"
 import { browser } from "wxt/browser"
 
 import { TrackerMark } from "../../components/TrackerMark"
-import { extractLinkedInJob } from "../../lib/linkedin"
+import { enrichCapture, extractLinkedInJob, mergeCapture } from "../../lib/linkedin"
 import { requestTracker } from "../../lib/messaging"
 import { addDiagnostic, connectionStorage } from "../../lib/storage"
 import type { ApiResult, CapturedJob } from "../../lib/types"
 
 type CaptureAppProps = {
   registerOpen: (open: () => void) => void
+}
+
+// LinkedIn hydrates the job detail pane after the content script mounts, so the
+// first read can legitimately return a half-rendered card.
+const DOM_RETRY_ATTEMPTS = 5
+const DOM_RETRY_DELAY_MS = 300
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 function capturePayload(job: CapturedJob) {
@@ -64,15 +73,57 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
   const [showDetails, setShowDetails] = React.useState(false)
   const [undoSeconds, setUndoSeconds] = React.useState(0)
   const dialogRef = React.useRef<HTMLDialogElement>(null)
+  const captureRun = React.useRef(0)
+  const jobRef = React.useRef(job)
+
+  const commit = React.useCallback((next: CapturedJob) => {
+    jobRef.current = next
+    setJob(next)
+  }, [])
+
+  // Re-reads the pane until every field lands, then asks LinkedIn's public
+  // posting fragment for whatever the rendered card still did not provide.
+  const loadCapture = React.useCallback((options: { remote: boolean }) => {
+    const run = (captureRun.current += 1)
+    const fresh = extractLinkedInJob(document)
+    const previous = jobRef.current
+    // Reopening the same job keeps earlier passes and your edits; switching
+    // jobs starts clean so no field survives from the previous posting.
+    let resolved = previous.jobId && previous.jobId === fresh.jobId
+      ? mergeCapture(fresh, previous)
+      : fresh
+    commit(resolved)
+
+    void (async () => {
+      for (let attempt = 0; attempt < DOM_RETRY_ATTEMPTS; attempt += 1) {
+        if (resolved.diagnostics.missingFields.length === 0) break
+        await delay(DOM_RETRY_DELAY_MS)
+        if (captureRun.current !== run) return
+        resolved = mergeCapture(jobRef.current, extractLinkedInJob(document))
+        commit(resolved)
+      }
+      if (!options.remote) return
+      const enriched = await enrichCapture(resolved)
+      if (captureRun.current !== run || enriched === resolved) return
+      commit(mergeCapture(jobRef.current, enriched))
+    })()
+  }, [commit])
+
+  React.useEffect(() => {
+    loadCapture({ remote: false })
+    return () => {
+      captureRun.current += 1
+    }
+  }, [loadCapture])
 
   React.useEffect(() => {
     registerOpen(() => {
-      setJob(extractLinkedInJob(document))
+      loadCapture({ remote: true })
       setResult(null)
       setError("")
       setOpen(true)
     })
-  }, [registerOpen])
+  }, [loadCapture, registerOpen])
 
   React.useEffect(() => {
     const dialog = dialogRef.current
@@ -88,7 +139,7 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
   }, [undoSeconds])
 
   function update<K extends keyof CapturedJob>(key: K, value: CapturedJob[K]) {
-    setJob((current) => ({ ...current, [key]: value }))
+    commit({ ...jobRef.current, [key]: value })
   }
 
   async function submit() {
@@ -163,7 +214,7 @@ export function CaptureApp({ registerOpen }: CaptureAppProps) {
         type="button"
         className={`capture-trigger ${tracked ? "is-tracked" : ""}`}
         onClick={() => {
-          setJob(extractLinkedInJob(document))
+          loadCapture({ remote: true })
           setOpen(true)
         }}
       >

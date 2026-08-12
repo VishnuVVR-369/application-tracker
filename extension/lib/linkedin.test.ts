@@ -3,7 +3,13 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 
-import { extractLinkedInJob, parseCompensation } from "./linkedin"
+import {
+  enrichCapture,
+  extractLinkedInJob,
+  mergeCapture,
+  parseCompensation,
+  parseGuestPosting,
+} from "./linkedin"
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -194,5 +200,222 @@ describe("LinkedIn extraction", () => {
 
     expect(extractLinkedInJob(document, "https://www.linkedin.com/jobs/search/").jobId)
       .toBe("4250022222")
+  })
+})
+
+describe("signed-in LinkedIn layout", () => {
+  const signedInJob = () => extractLinkedInJob(
+    fixture("authenticated-search-job.html"),
+    "https://www.linkedin.com/jobs/search/?currentJobId=4100000002&keywords=backend"
+  )
+
+  it("reads every detail from the selected pane without structured data", () => {
+    const job = signedInJob()
+
+    expect(job).toMatchObject({
+      jobId: "4100000002",
+      postingUrl: "https://www.linkedin.com/jobs/view/4100000002/",
+      companyName: "Northwind Robotics",
+      roleTitle: "Staff Backend Engineer",
+      location: "Bengaluru, Karnataka, India",
+      workArrangement: "hybrid",
+      compensationMin: 4_000_000,
+      compensationMax: 6_000_000,
+      compensationCurrency: "INR",
+      compensationPeriod: "year",
+    })
+    expect(job.jobDescriptionSnapshot).toBe([
+      "Northwind Robotics is hiring a Staff Backend Engineer to lead our fleet telemetry platform.",
+      "Design event pipelines that ingest millions of robot events per hour.",
+      "Mentor a team of five backend engineers.",
+    ].join("\n"))
+    expect(job.diagnostics).toMatchObject({ pageType: "search", missingFields: [] })
+  })
+
+  it("ignores the results rail and the page-level heading", () => {
+    const job = signedInJob()
+
+    expect(job.roleTitle).not.toBe("Job search results")
+    expect(job.companyName).not.toBe("Unrelated Company")
+    expect(job.location).not.toBe("Pune, Maharashtra, India")
+  })
+
+  it("collapses labels LinkedIn duplicates for screen readers", () => {
+    expect(signedInJob().roleTitle).toBe("Staff Backend Engineer")
+  })
+
+  it("drops posting recency and applicant counts from the location", () => {
+    const job = extractLinkedInJob(new DOMParser().parseFromString(`
+      <div class="jobs-search__job-details--container" data-job-id="4100000003">
+        <div class="job-details-jobs-unified-top-card__job-title"><h1>Designer</h1></div>
+        <div class="job-details-jobs-unified-top-card__company-name">Helio</div>
+        <div class="job-details-jobs-unified-top-card__primary-description-container">
+          Helio &middot; 3 days ago &middot; 48 applicants
+        </div>
+      </div>
+    `, "text/html"), "https://www.linkedin.com/jobs/search/?currentJobId=4100000003")
+
+    expect(job.location).toBeUndefined()
+    expect(job.diagnostics.missingFields).toContain("location")
+  })
+
+  it("reads the workplace type from a location suffix", () => {
+    const job = extractLinkedInJob(new DOMParser().parseFromString(`
+      <div class="jobs-search__job-details--container" data-job-id="4100000004">
+        <div class="job-details-jobs-unified-top-card__job-title"><h1>Designer</h1></div>
+        <div class="job-details-jobs-unified-top-card__primary-description-container">
+          <span class="tvm__text">Berlin, Germany (Remote)</span>
+        </div>
+      </div>
+    `, "text/html"), "https://www.linkedin.com/jobs/search/?currentJobId=4100000004")
+
+    expect(job.location).toBe("Berlin, Germany")
+    expect(job.workArrangement).toBe("remote")
+  })
+
+  it("falls back to the Open Graph hiring title", () => {
+    const job = extractLinkedInJob(new DOMParser().parseFromString(`
+      <head><meta property="og:title" content="Helio Systems hiring Product Designer in Berlin, Germany | LinkedIn" /></head>
+      <body><div id="job-details">A long enough description to be captured by the extension preview.</div></body>
+    `, "text/html"), "https://www.linkedin.com/jobs/view/4100000005/")
+
+    expect(job).toMatchObject({
+      companyName: "Helio Systems",
+      roleTitle: "Product Designer",
+      location: "Berlin, Germany",
+    })
+  })
+
+  it("infers an omitted compensation period from the magnitude of the range", () => {
+    expect(parseCompensation("$150,000 - $200,000")).toMatchObject({
+      compensationMin: 150_000,
+      compensationMax: 200_000,
+      compensationPeriod: "year",
+    })
+    expect(parseCompensation("$55 - $70")).toMatchObject({
+      compensationMin: 55,
+      compensationMax: 70,
+      compensationPeriod: "hour",
+    })
+    expect(parseCompensation("Base pay range 401(k) eligible")).toEqual({
+      compensationNotes: "Base pay range 401(k) eligible",
+    })
+  })
+
+  it("prefers currency-anchored amounts over unrelated numbers", () => {
+    expect(parseCompensation("Base pay range · $180,000/yr - $220,000/yr · 401(k)")).toMatchObject({
+      compensationMin: 180_000,
+      compensationMax: 220_000,
+      compensationPeriod: "year",
+    })
+  })
+})
+
+describe("guest posting fallback", () => {
+  const guestHtml = () => fs.readFileSync(
+    path.join(dirname, "../test/fixtures/guest-posting.html"),
+    "utf8"
+  )
+
+  it("parses the public posting fragment", () => {
+    expect(parseGuestPosting(guestHtml())).toMatchObject({
+      roleTitle: "Staff Backend Engineer",
+      companyName: "Northwind Robotics",
+      location: "Bengaluru, Karnataka, India",
+      workArrangement: "hybrid",
+      compensationMin: 4_000_000,
+      compensationMax: 6_000_000,
+      compensationCurrency: "INR",
+      compensationPeriod: "year",
+      jobDescriptionSnapshot: "Own the telemetry platform end to end.\nDesign event pipelines.\nMentor backend engineers.",
+    })
+  })
+
+  it("fills fields the rendered page could not provide", async () => {
+    const bare = extractLinkedInJob(
+      new DOMParser().parseFromString("<body></body>", "text/html"),
+      "https://www.linkedin.com/jobs/view/4100000002/"
+    )
+    expect(bare.diagnostics.missingFields).toContain("companyName")
+
+    const enriched = await enrichCapture(bare, async () => guestHtml())
+
+    expect(enriched).toMatchObject({
+      jobId: "4100000002",
+      companyName: "Northwind Robotics",
+      roleTitle: "Staff Backend Engineer",
+      location: "Bengaluru, Karnataka, India",
+      workArrangement: "hybrid",
+    })
+    expect(enriched.diagnostics.missingFields).toEqual([])
+    expect(enriched.diagnostics.strategies).toContain("guest-api")
+  })
+
+  it("keeps the rendered capture when the guest endpoint fails", async () => {
+    const bare = extractLinkedInJob(
+      new DOMParser().parseFromString("<body></body>", "text/html"),
+      "https://www.linkedin.com/jobs/view/4100000002/"
+    )
+
+    await expect(enrichCapture(bare, async () => { throw new Error("429") })).resolves.toEqual(bare)
+    await expect(enrichCapture(bare, async () => undefined)).resolves.toEqual(bare)
+  })
+
+  it("skips the request when the rendered capture is already complete", async () => {
+    const complete = signedInComplete()
+    let requested = false
+
+    const enriched = await enrichCapture(complete, async () => {
+      requested = true
+      return guestHtml()
+    })
+
+    expect(requested).toBe(false)
+    expect(enriched).toEqual(complete)
+  })
+
+  function signedInComplete() {
+    return extractLinkedInJob(
+      fixture("authenticated-search-job.html"),
+      "https://www.linkedin.com/jobs/search/?currentJobId=4100000002"
+    )
+  }
+})
+
+describe("merging captures", () => {
+  const base = extractLinkedInJob(
+    new DOMParser().parseFromString(`
+      <div data-job-id="4100000006" class="jobs-details">
+        <div class="job-details-jobs-unified-top-card__job-title"><h1>Analyst</h1></div>
+      </div>
+    `, "text/html"),
+    "https://www.linkedin.com/jobs/view/4100000006/"
+  )
+
+  it("never overwrites values already present", () => {
+    const edited = { ...base, companyName: "User Typed Co" }
+    const merged = mergeCapture(edited, { companyName: "Extracted Co", location: "Lisbon, Portugal" })
+
+    expect(merged.companyName).toBe("User Typed Co")
+    expect(merged.location).toBe("Lisbon, Portugal")
+    expect(merged.roleTitle).toBe("Analyst")
+  })
+
+  it("records a strategy only when it contributed a field", () => {
+    expect(mergeCapture(base, { location: "Lisbon" }, "guest-api").diagnostics.strategies)
+      .toContain("guest-api")
+    expect(mergeCapture(base, {}, "guest-api").diagnostics.strategies)
+      .not.toContain("guest-api")
+  })
+
+  it("recanonicalizes the posting URL when a job ID arrives late", () => {
+    const withoutId = extractLinkedInJob(
+      new DOMParser().parseFromString("<body></body>", "text/html"),
+      "https://www.linkedin.com/jobs/collections/recommended/"
+    )
+    const merged = mergeCapture(withoutId, { jobId: "4100000007" })
+
+    expect(merged.jobId).toBe("4100000007")
+    expect(merged.postingUrl).toBe("https://www.linkedin.com/jobs/view/4100000007/")
   })
 })
