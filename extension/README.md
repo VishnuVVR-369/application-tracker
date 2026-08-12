@@ -37,6 +37,17 @@ On a supported LinkedIn job page, use **Add to Tracker** beside the job actions.
 
 The preview requires a LinkedIn job ID, posting URL, company, and role. It defaults to **Saved**; select **Already applied today** to create an Applied record using your local timezone stored by Way2More. All extracted identity and compensation fields can be edited before confirmation. Currency remains blank unless LinkedIn explicitly provides one. Nothing is submitted to Way2More until **Add to Tracker** is pressed.
 
+### How fields are extracted
+
+The preview fills in company, role, location, workplace type, compensation, and the job description from the first source that answers, in order:
+
+1. **JSON-LD `JobPosting`**, when LinkedIn serves it (mostly signed-out job pages).
+2. **The selected job pane.** Generic markup — the page `h1`, `/company/` links — is read only inside the pane, so a search-results rail never contributes another job's details. Labels LinkedIn duplicates for screen readers are collapsed, and posting recency, applicant counts, and promotion badges are discarded from the location.
+3. **The Open Graph title**, which encodes `Company hiring Role in Location`.
+4. **LinkedIn's public guest posting fragment** for the same job ID, requested when the preview opens and the rendered page left a field blank.
+
+Because LinkedIn hydrates the detail pane after the content script mounts, the preview re-reads the pane for a short window and fills blanks as they appear. A value already present — including anything you typed — is never overwritten.
+
 Duplicate LinkedIn job IDs and canonical URLs return the existing application. The job ID and posting URL must identify the same LinkedIn job. **Refresh job details** stores the latest extension extraction as a separate, read-only snapshot shown on the application detail page. It never overwrites or clears user-managed application fields, and resume match analysis continues to use the application-owned job description.
 
 ## Permissions and privacy
@@ -47,6 +58,8 @@ Duplicate LinkedIn job IDs and canonical URLs return the existing application. T
 
 The content script reads only loaded LinkedIn job-detail DOM and structured data. It does not read LinkedIn credentials, messages, contacts, profiles, or unrelated browsing. It never clicks Apply or follows an external application redirect. Captured descriptions are normalized to plain text.
 
+When you open the preview and the rendered page left a field blank, the content script makes one same-origin request to LinkedIn's public guest posting fragment for the job ID you are already viewing. It is sent without credentials, no other job is requested, and a failure leaves the rendered capture untouched.
+
 There is no analytics or remote crash telemetry. Local diagnostics contain only timestamps, sanitized error codes, page type, and extraction-strategy names. They are capped at 100 entries and seven days and never include tokens or job descriptions.
 
 ## Troubleshooting
@@ -54,9 +67,9 @@ There is no analytics or remote crash telemetry. Local diagnostics contain only 
 - **Connect Tracker shown:** create or paste a valid token, then test the connection in extension options.
 - **Invalid or revoked token:** create a new token in Tracker Settings and replace the local token.
 - **Button missing:** use the toolbar popup. If that also fails, reload LinkedIn after installing or updating the extension.
-- **Company or role missing:** correct the highlighted fields in the preview. Optional fields may stay blank.
+- **Company or role missing:** reopen the preview once the job pane has finished rendering, then correct any highlighted field. Optional fields may stay blank.
 - **Network failure:** the populated preview remains open. Retry or use **Copy details**; v1 does not retain an offline queue.
-- **LinkedIn layout regression:** copy local diagnostics from extension options. Extraction fixture tests cover direct and split-panel layouts, but LinkedIn selectors can change.
+- **LinkedIn layout regression:** copy local diagnostics from extension options. The recorded strategies name the source of each capture (`json-ld`, `dom-top-card`, `dom-description`, `guest-api`); a capture that reaches `guest-api` every time means the rendered-pane selectors need updating. Extraction fixture tests cover signed-out, signed-in split-panel, and guest-fragment layouts, but LinkedIn selectors can change.
 
 ## Disconnect and uninstall
 
@@ -79,7 +92,7 @@ The API supports only connection testing, single-job lookup/create, allowlisted 
 1. Build and load the unpacked extension in current desktop Chrome.
 2. Create a production token, connect to `https://way2more.vercel.app`, and verify the connection succeeds.
 3. Open a direct LinkedIn `/jobs/view/...` page and confirm the inline button appears.
-4. Review extracted title, company, URL/job ID, location, explicit arrangement, compensation, and description; correct any missing essentials.
+4. Review extracted title, company, URL/job ID, location, explicit arrangement, compensation, and description; correct any missing essentials. Open **More details** and confirm the description and compensation are populated.
 5. Create a Saved application and use **Open application**.
 6. Reload Way2More and verify source, captured fields, default resume, stage history, and activity.
 7. Capture the same job again and verify the existing record is returned.
