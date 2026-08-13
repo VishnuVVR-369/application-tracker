@@ -123,6 +123,8 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
   const [formError, setFormError] = React.useState("")
   const [draftExpired, setDraftExpired] = React.useState(false)
   const [canonicalIndexReady, setCanonicalIndexReady] = React.useState(false)
+  const [canonicalPreparationError, setCanonicalPreparationError] = React.useState("")
+  const [canonicalPreparationAttempt, setCanonicalPreparationAttempt] = React.useState(0)
   const [saveResult, setSaveResult] = React.useState<{
     applicationId: Id<"applications">
     status: "created" | "exists"
@@ -149,10 +151,15 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
           const result = await prepareCanonicalUrls({})
           done = result.done
         }
-        if (!cancelled) setCanonicalIndexReady(true)
+        if (!cancelled) {
+          setCanonicalIndexReady(true)
+          setCanonicalPreparationError("")
+        }
       } catch (error) {
         if (!cancelled) {
-          setFormError(error instanceof Error ? error.message : "Could not prepare application links")
+          setCanonicalPreparationError(
+            error instanceof Error ? error.message : "Could not prepare application links"
+          )
         }
       }
     }
@@ -161,16 +168,12 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
     return () => {
       cancelled = true
     }
-  }, [dataReady, prepareCanonicalUrls])
+  }, [canonicalPreparationAttempt, dataReady, prepareCanonicalUrls])
 
   React.useEffect(() => {
     if (!sharedDraft) return
     const expiresIn = sharedDraft.receivedAt + MOBILE_CAPTURE_TTL_MS - Date.now()
-    if (expiresIn <= 0) {
-      expireDraft()
-      return
-    }
-    const timeout = window.setTimeout(expireDraft, expiresIn)
+    const timeout = window.setTimeout(expireDraft, Math.max(0, expiresIn))
     return () => window.clearTimeout(timeout)
   }, [expireDraft, sharedDraft])
 
@@ -183,6 +186,11 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
 
   function updateField<K extends keyof CaptureForm>(key: K, value: CaptureForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function retryCanonicalPreparation() {
+    setCanonicalPreparationError("")
+    setCanonicalPreparationAttempt((current) => current + 1)
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -267,6 +275,22 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
       />
 
       <form onSubmit={onSubmit} className="mx-auto grid max-w-3xl gap-4">
+        {canonicalPreparationError && (
+          <div className="rounded-xl border border-status-warn/35 bg-status-warn/10 p-4">
+            <p className="text-sm font-semibold">Application links need another try</p>
+            <p className="mt-1 text-sm text-ink-300">{canonicalPreparationError}</p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={retryCanonicalPreparation}
+            >
+              Retry preparation
+            </Button>
+          </div>
+        )}
+
         {duplicate && (
           <div className="rounded-xl border border-status-warn/35 bg-status-warn/10 p-4">
             <p className="text-sm font-semibold">Already in your tracker</p>
@@ -454,11 +478,13 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
             <Save className="size-4" />
             {pending
               ? "Saving…"
-              : !canonicalIndexReady
-                ? "Preparing application links…"
-                : form.stage === "applied"
-                  ? "Add applied job"
-                  : "Save application"}
+              : canonicalPreparationError
+                ? "Retry preparation above"
+                : !canonicalIndexReady
+                  ? "Preparing application links…"
+                  : form.stage === "applied"
+                    ? "Add applied job"
+                    : "Save application"}
           </Button>
         </div>
       </form>
