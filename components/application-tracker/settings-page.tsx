@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { EmptyState, PageHeader, Panel } from "./common"
 import { ExtensionAccessPanel } from "./extension-access-panel"
+import { AndroidInstallPanel } from "./android-install-panel"
 import { PageSkeleton } from "./skeletons"
 import { useAppData } from "./use-app-data"
 
@@ -196,6 +197,8 @@ export function SettingsPage() {
             </Button>
           </div>
         </Panel>
+
+        <AndroidInstallPanel />
 
         <ExtensionAccessPanel />
 

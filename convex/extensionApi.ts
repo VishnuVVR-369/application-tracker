@@ -5,6 +5,7 @@ import { internalMutation, type MutationCtx } from "./_generated/server"
 import { addActivity, createApplicationRecord } from "./applications"
 import { extensionOperation } from "./extensionApiValidators"
 import { canonicalizeUrl } from "./model"
+import { userLocalDateKey } from "./userDate"
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_REQUESTS = 30
@@ -219,25 +220,6 @@ function captureSnapshot(args: {
   }
 }
 
-async function localDateKey(
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  timestamp: number
-) {
-  const settings = await ctx.db
-    .query("userSettings")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique()
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: settings?.timezone ?? "UTC",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(timestamp)
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
-  return `${values.year}-${values.month}-${values.day}`
-}
-
 export const executeInternal = internalMutation({
   args: {
     tokenHash: v.string(),
@@ -275,7 +257,7 @@ export const executeInternal = internalMutation({
         return { status: "exists" as const, application: applicationResult(existing) }
       }
 
-      const today = await localDateKey(ctx, user._id, Date.now())
+      const today = await userLocalDateKey(ctx, user._id, Date.now())
       const applicationId = await createApplicationRecord(ctx, user, {
         postingUrl: snapshot.postingUrl,
         postingTitleSnapshot: snapshot.roleTitle,

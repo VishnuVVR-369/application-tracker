@@ -20,6 +20,7 @@ const appDataScope = v.union(
   v.literal("failure"),
   v.literal("settings"),
   v.literal("workspace"),
+  v.literal("mobile-capture"),
   v.literal("application-detail")
 )
 
@@ -61,7 +62,7 @@ const FULL_COLLECTION_SCOPES: Record<DetailScopedTable, AppDataScope[]> & {
   applicationContacts: ["command", "pipeline", "interviews", "people", "workspace"],
   applicationInterviews: ["today", "pipeline", "interviews", "stories", "failure"],
   applicationOffers: ["today"],
-  resumes: ["command", "today", "pipeline", "documents", "analytics", "workspace", "application-detail"],
+  resumes: ["command", "today", "pipeline", "documents", "analytics", "workspace", "mobile-capture", "application-detail"],
   applicationResumeLinks: [],
   weeklyGoals: ["today", "goals"],
   winLogEntries: ["today", "goals"],

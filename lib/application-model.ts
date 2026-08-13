@@ -253,7 +253,7 @@ export type ApplicationRecord = {
   postingCapturedAt?: number
   source?: ApplicationSource
   sourceDetail?: string
-  sourceSystem?: "manual" | "import" | "browser_extension"
+  sourceSystem?: "manual" | "import" | "browser_extension" | "mobile_share"
   sourceExternalId?: string
   extensionCaptureSnapshot?: ExtensionCaptureSnapshot
   dateSavedDate?: string

@@ -140,7 +140,8 @@ export const rejectionReason = v.union(
 export const sourceSystem = v.union(
   v.literal("manual"),
   v.literal("import"),
-  v.literal("browser_extension")
+  v.literal("browser_extension"),
+  v.literal("mobile_share")
 )
 
 export const qualityCheckSnapshot = v.object({

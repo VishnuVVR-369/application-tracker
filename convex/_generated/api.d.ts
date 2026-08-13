@@ -26,6 +26,7 @@ import type * as http from "../http.js";
 import type * as interviews from "../interviews.js";
 import type * as matchAnalysis from "../matchAnalysis.js";
 import type * as matchAnalysisData from "../matchAnalysisData.js";
+import type * as mobileCapture from "../mobileCapture.js";
 import type * as model from "../model.js";
 import type * as offers from "../offers.js";
 import type * as prep from "../prep.js";
@@ -35,6 +36,7 @@ import type * as seed from "../seed.js";
 import type * as stories from "../stories.js";
 import type * as targets from "../targets.js";
 import type * as tasks from "../tasks.js";
+import type * as userDate from "../userDate.js";
 import type * as users from "../users.js";
 
 import type {
@@ -62,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   interviews: typeof interviews;
   matchAnalysis: typeof matchAnalysis;
   matchAnalysisData: typeof matchAnalysisData;
+  mobileCapture: typeof mobileCapture;
   model: typeof model;
   offers: typeof offers;
   prep: typeof prep;
@@ -71,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   stories: typeof stories;
   targets: typeof targets;
   tasks: typeof tasks;
+  userDate: typeof userDate;
   users: typeof users;
 }>;
 

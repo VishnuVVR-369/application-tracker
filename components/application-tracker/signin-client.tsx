@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth-client"
+import { safeAppCallback } from "@/lib/mobile-share"
 
 function GithubIcon() {
   return (
@@ -34,14 +35,15 @@ function GoogleIcon() {
   )
 }
 
-export function SignInClient() {
+export function SignInClient({ callbackURL = "/app" }: { callbackURL?: string }) {
+  const safeCallbackURL = safeAppCallback(callbackURL)
   return (
     <div className="grid gap-3">
       <Button
         size="lg"
         className="h-11"
         onClick={() =>
-          void authClient.signIn.social({ provider: "github", callbackURL: "/app" })
+          void authClient.signIn.social({ provider: "github", callbackURL: safeCallbackURL })
         }
       >
         <GithubIcon />
@@ -52,7 +54,7 @@ export function SignInClient() {
         size="lg"
         className="h-11"
         onClick={() =>
-          void authClient.signIn.social({ provider: "google", callbackURL: "/app" })
+          void authClient.signIn.social({ provider: "google", callbackURL: safeCallbackURL })
         }
       >
         <GoogleIcon />

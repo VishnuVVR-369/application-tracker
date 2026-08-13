@@ -14,6 +14,7 @@ A job-search command center, not just a spreadsheet replacement. Track applicati
 - **Insights & Analytics** — funnel conversion, effort-to-outcome (ROI), and other stats across your search.
 - **Goals** — weekly/period targets for applications, outreach, and interviews.
 - **LinkedIn capture extension** — review a LinkedIn job in Chrome, prevent duplicates, and save a posting snapshot through a revocable capture-only token.
+- **Android quick capture** — install Way2More from Chrome on Android, share a job from LinkedIn or another app, review the extracted fields, and save without creating duplicates.
 
 ## Tech stack
 
@@ -59,4 +60,4 @@ A job-search command center, not just a spreadsheet replacement. Track applicati
 - `pnpm extension:zip` — package a versioned extension ZIP
 - `pnpm seed:test-data` — seed a local Convex deployment with sample data (see `.env.example` for `SEED_*` overrides)
 
-See [`extension/README.md`](extension/README.md) for installation, permissions, privacy, troubleshooting, and end-to-end verification.
+See [`extension/README.md`](extension/README.md) for desktop extension setup and [`ANDROID_CAPTURE.md`](ANDROID_CAPTURE.md) for Android installation, use, privacy, troubleshooting, and physical-device verification.

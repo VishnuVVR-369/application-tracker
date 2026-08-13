@@ -18,7 +18,7 @@ import {
 } from "./schema"
 import {
   buildResumeSnapshot,
-  canonicalizeUrl,
+  canonicalizePostingUrl,
   dateKeyFromTimestamp,
   getDomain,
   normalizeKey,
@@ -403,7 +403,7 @@ function buildApplicationPatch(args: ApplicationPatchInput) {
     compensationNotes: args.compensationNotes,
     postingUrl,
     postingUrlCanonical:
-      postingUrl === undefined ? undefined : canonicalizeUrl(postingUrl),
+      postingUrl === undefined ? undefined : canonicalizePostingUrl(postingUrl),
     postingTitleSnapshot: args.postingTitleSnapshot,
     postingCompanySnapshot: args.postingCompanySnapshot,
     postingCapturedAt: args.postingCapturedAt,

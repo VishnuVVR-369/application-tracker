@@ -6,10 +6,17 @@ import { ApplicationTrackerMark } from "@/components/application-tracker/applica
 import { SignInClient } from "@/components/application-tracker/signin-client"
 import { FadeIn, MeshBackground } from "@/components/application-tracker/atmosphere"
 import { hasConvexAuthEnv, isAuthenticated } from "@/lib/auth-server"
+import { safeAppCallback } from "@/lib/mobile-share"
 
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackURL?: string | string[] }>
+}) {
+  const callbackValue = (await searchParams).callbackURL
+  const callbackURL = safeAppCallback(Array.isArray(callbackValue) ? callbackValue[0] : callbackValue)
   if (hasConvexAuthEnv() && (await isAuthenticated())) {
-    redirect("/app")
+    redirect(callbackURL)
   }
 
   return (
@@ -40,7 +47,7 @@ export default async function SignInPage() {
             </p>
 
             <div className="mt-6">
-              <SignInClient />
+              <SignInClient callbackURL={callbackURL} />
             </div>
 
             <p className="mt-6 flex items-center gap-2 border-t border-line/70 pt-5 text-xs text-ink-500">

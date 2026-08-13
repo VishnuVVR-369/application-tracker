@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -19,9 +19,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Application Tracker",
+  applicationName: "Way2More Application Tracker",
+  title: "Way2More Application Tracker",
   description:
     "Track every job application from saved to closed — resumes, deadlines, analytics, and goals in one calm, dark-first dashboard.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b0f14",
 };
 
 export default async function RootLayout({
