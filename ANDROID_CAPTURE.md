@@ -34,6 +34,8 @@ Chrome creates an installed web app for Way2More. Installation is what registers
 
 You can also long-press the installed Way2More icon and choose **Add job**, or open **Settings → Android quick capture → Open quick capture**, to enter an application without sharing from another app.
 
+Way2More uses the timezone saved with your account when it records today's **Saved** or **Applied** date.
+
 ## Duplicate behavior
 
 Way2More normalizes common job-link variants before creating an application:
@@ -46,9 +48,9 @@ If the normalized URL already exists, Way2More shows the existing application an
 
 ## Privacy and failure behavior
 
-- Receiving a share does not write to the database.
+- Receiving a share does not write the shared job to the database.
 - The incoming title, text, and URL arrive as normal HTTPS request parameters and may therefore be present in browser history or hosting access logs. Way2More does not write them to the application database before confirmation; the review draft itself is kept in the current tab's `sessionStorage`.
-- The temporary draft expires after 30 minutes and is removed after a successful create.
+- The temporary draft expires after 30 minutes and is removed after a successful confirmation, including when Way2More finds an existing application.
 - Only HTTP and HTTPS URLs without embedded credentials are accepted.
 - A failed or interrupted save stays on the review screen so you can retry. There is no background or offline submission.
 
@@ -87,13 +89,13 @@ pnpm extension:test
 pnpm extension:build
 ```
 
-To exercise the receiver locally in a desktop browser, start the app and open:
+To exercise the receiver locally in a desktop browser, start the app, sign out, and open:
 
 ```text
 http://localhost:3000/capture?title=Acme%20hiring%20Engineer%20%7C%20LinkedIn&text=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2F4250012345%2F
 ```
 
-This verifies parsing, authentication handoff, review, duplicate detection, and creation. It does **not** prove Android share-sheet registration.
+Sign in, complete the review, and then open the same URL again. This exercises parsing, authentication handoff, review, creation, and duplicate detection. It does **not** prove Android share-sheet registration.
 
 Before release, use a physical Android phone against the deployed HTTPS origin:
 

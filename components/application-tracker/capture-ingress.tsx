@@ -27,10 +27,10 @@ export function CaptureIngress({
     try {
       sessionStorage.setItem(MOBILE_CAPTURE_STORAGE_KEY, JSON.stringify(draft))
       stored = true
-      setStorageError(false)
-    } catch {
-      setStorageError(true)
-    }
+    } catch {}
+    // This state reflects a browser storage side effect that can only run after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStorageError(!stored)
     if (stored && !session.isPending && session.data) {
       router.replace("/app/capture")
     }
