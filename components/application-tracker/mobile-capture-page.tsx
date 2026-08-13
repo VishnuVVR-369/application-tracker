@@ -28,6 +28,7 @@ import {
 } from "@/lib/application-model"
 import {
   MOBILE_CAPTURE_STORAGE_KEY,
+  MOBILE_CAPTURE_TTL_MS,
   isFreshMobileCaptureDraft,
   type MobileCaptureDraft,
 } from "@/lib/mobile-share"
@@ -67,6 +68,14 @@ const subscribeToHydration = () => () => undefined
 const hydratedClientSnapshot = () => true
 const serverSnapshot = () => false
 
+function clearMobileCaptureDraft() {
+  try {
+    sessionStorage.removeItem(MOBILE_CAPTURE_STORAGE_KEY)
+  } catch {
+    return
+  }
+}
+
 function readMobileCaptureDraft() {
   try {
     const raw = sessionStorage.getItem(MOBILE_CAPTURE_STORAGE_KEY)
@@ -101,21 +110,75 @@ export function MobileCapturePage() {
 function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDraft | null }) {
   const { data, isLoading } = useAppData("mobile-capture")
   const createCapture = useMutation(api.mobileCapture.create)
+  const prepareCanonicalUrls = useMutation(api.mobileCapture.prepareCanonicalUrls)
   const [form, setForm] = React.useState<CaptureForm>(() => ({
     ...EMPTY_FORM,
     postingUrl: initialDraft?.postingUrl ?? "",
     companyName: initialDraft?.companyName ?? "",
     roleTitle: initialDraft?.roleTitle ?? "",
   }))
-  const [sharedDraft] = React.useState(initialDraft)
+  const [sharedDraft, setSharedDraft] = React.useState(initialDraft)
   const [showDetails, setShowDetails] = React.useState(false)
   const [pending, setPending] = React.useState(false)
   const [formError, setFormError] = React.useState("")
-  const [savedApplicationId, setSavedApplicationId] = React.useState<Id<"applications"> | null>(null)
+  const [draftExpired, setDraftExpired] = React.useState(false)
+  const [canonicalIndexReady, setCanonicalIndexReady] = React.useState(false)
+  const [saveResult, setSaveResult] = React.useState<{
+    applicationId: Id<"applications">
+    status: "created" | "exists"
+    archived: boolean
+  } | null>(null)
+  const dataReady = Boolean(data)
+
+  const expireDraft = React.useCallback(() => {
+    clearMobileCaptureDraft()
+    setSharedDraft(null)
+    setForm(EMPTY_FORM)
+    setDraftExpired(true)
+    setFormError("This shared job expired. Share it again from Android to continue.")
+  }, [])
+
+  React.useEffect(() => {
+    if (!dataReady) return
+    let cancelled = false
+
+    async function prepare() {
+      try {
+        let done = false
+        while (!cancelled && !done) {
+          const result = await prepareCanonicalUrls({})
+          done = result.done
+        }
+        if (!cancelled) setCanonicalIndexReady(true)
+      } catch (error) {
+        if (!cancelled) {
+          setFormError(error instanceof Error ? error.message : "Could not prepare application links")
+        }
+      }
+    }
+
+    void prepare()
+    return () => {
+      cancelled = true
+    }
+  }, [dataReady, prepareCanonicalUrls])
+
+  React.useEffect(() => {
+    if (!sharedDraft) return
+    const expiresIn = sharedDraft.receivedAt + MOBILE_CAPTURE_TTL_MS - Date.now()
+    if (expiresIn <= 0) {
+      expireDraft()
+      return
+    }
+    const timeout = window.setTimeout(expireDraft, expiresIn)
+    return () => window.clearTimeout(timeout)
+  }, [expireDraft, sharedDraft])
 
   const duplicate = useQuery(
     api.mobileCapture.findDuplicate,
-    data && validPostingUrl(form.postingUrl) ? { postingUrl: form.postingUrl.trim() } : "skip"
+    data && canonicalIndexReady && validPostingUrl(form.postingUrl)
+      ? { postingUrl: form.postingUrl.trim() }
+      : "skip"
   )
 
   function updateField<K extends keyof CaptureForm>(key: K, value: CaptureForm[K]) {
@@ -125,6 +188,14 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError("")
+    if (draftExpired || (sharedDraft && !isFreshMobileCaptureDraft(sharedDraft))) {
+      expireDraft()
+      return
+    }
+    if (!canonicalIndexReady) {
+      setFormError("Application links are still being prepared. Try again shortly.")
+      return
+    }
     if (!validPostingUrl(form.postingUrl)) {
       setFormError("Enter a valid HTTP or HTTPS posting URL.")
       return
@@ -149,8 +220,13 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
         jobDescriptionSnapshot: form.jobDescriptionSnapshot.trim() || undefined,
         notes: form.notes.trim() || undefined,
       })
-      sessionStorage.removeItem(MOBILE_CAPTURE_STORAGE_KEY)
-      setSavedApplicationId(result.application.applicationId)
+      clearMobileCaptureDraft()
+      setSharedDraft(null)
+      setSaveResult({
+        applicationId: result.application.applicationId,
+        status: result.status,
+        archived: result.application.archived,
+      })
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Could not save application")
     } finally {
@@ -163,13 +239,20 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
     return <EmptyState title="Capture unavailable" description="Sign in to review this shared job." />
   }
 
-  if (savedApplicationId) {
+  if (saveResult) {
+    const created = saveResult.status === "created"
     return (
       <EmptyState
         icon={CheckCircle2}
-        title="Application saved"
-        description="The confirmed job is now in your application pipeline."
-        href={`/app/applications/${savedApplicationId}`}
+        title={created ? "Application saved" : "Application already tracked"}
+        description={
+          created
+            ? "The confirmed job is now in your application pipeline."
+            : saveResult.archived
+              ? "The matching application already exists in your archive."
+              : "The matching application already exists in your pipeline."
+        }
+        href={`/app/applications/${saveResult.applicationId}`}
         actionLabel="Open application"
       />
     )
@@ -362,9 +445,20 @@ function MobileCaptureContent({ initialDraft }: { initialDraft: MobileCaptureDra
 
         <FormError message={formError} />
         <div className="sticky bottom-3 z-10 rounded-xl border border-line bg-surface-2/95 p-3 shadow-overlay backdrop-blur">
-          <Button type="submit" size="lg" disabled={pending || Boolean(duplicate)} className="h-12 w-full">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={pending || draftExpired || !canonicalIndexReady || Boolean(duplicate)}
+            className="h-12 w-full"
+          >
             <Save className="size-4" />
-            {pending ? "Saving…" : form.stage === "applied" ? "Add applied job" : "Save application"}
+            {pending
+              ? "Saving…"
+              : !canonicalIndexReady
+                ? "Preparing application links…"
+                : form.stage === "applied"
+                  ? "Add applied job"
+                  : "Save application"}
           </Button>
         </div>
       </form>

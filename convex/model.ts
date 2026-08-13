@@ -38,6 +38,8 @@ const TRACKING_QUERY_KEYS = new Set([
   "msclkid",
 ])
 
+export const POSTING_URL_CANONICAL_VERSION = 1
+
 export function canonicalizePostingUrl(value: string | undefined) {
   if (!value?.trim()) return undefined
 
@@ -51,8 +53,8 @@ export function canonicalizePostingUrl(value: string | undefined) {
       return undefined
     }
 
-    const hostname = url.hostname.toLowerCase().replace(/^m\./, "www.")
-    const isLinkedIn = hostname === "linkedin.com" || hostname === "www.linkedin.com"
+    const hostname = url.hostname.toLowerCase()
+    const isLinkedIn = hostname === "linkedin.com" || hostname.endsWith(".linkedin.com")
     if (isLinkedIn) {
       const pathJobId = url.pathname.match(/\/jobs\/view\/(?:[^/]*-)?(\d{5,})(?:\/|$)/)?.[1]
       const queryJobId = url.searchParams.get("currentJobId") ?? url.searchParams.get("jobId")

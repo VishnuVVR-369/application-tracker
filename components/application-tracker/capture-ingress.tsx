@@ -19,21 +19,24 @@ export function CaptureIngress({
 }) {
   const router = useRouter()
   const session = authClient.useSession()
+  const [storageError, setStorageError] = React.useState(false)
   const { title, text, url } = share
   React.useEffect(() => {
     const draft = parseAndroidShare({ title, text, url })
+    let stored = false
     try {
       sessionStorage.setItem(MOBILE_CAPTURE_STORAGE_KEY, JSON.stringify(draft))
-      if (!session.isPending && session.data) {
-        router.replace("/app/capture")
-      }
+      stored = true
+      setStorageError(false)
     } catch {
-      // The sign-in surface remains usable, but no database write occurs when
-      // the browser blocks temporary storage.
+      setStorageError(true)
+    }
+    if (stored && !session.isPending && session.data) {
+      router.replace("/app/capture")
     }
   }, [router, session.data, session.isPending, text, title, url])
 
-  const waiting = session.isPending || Boolean(session.data)
+  const waiting = session.isPending || (Boolean(session.data) && !storageError)
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 text-ink-100">
@@ -51,7 +54,11 @@ export function CaptureIngress({
         </p>
 
         <div className="mt-6">
-          {waiting ? (
+          {storageError ? (
+            <div className="rounded-xl border border-status-warn/35 bg-status-warn/10 px-4 py-3 text-sm text-ink-300">
+              This browser blocked temporary storage, so the shared job could not be held. Allow site storage and share the job again.
+            </div>
+          ) : waiting ? (
             <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-1/60 px-4 py-3 text-sm text-ink-300">
               <LoaderCircle className="size-4 animate-spin text-brand" />
               Opening secure capture…

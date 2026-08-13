@@ -13,6 +13,9 @@ describe("posting URL identity", () => {
     expect(
       canonicalizePostingUrl("https://m.linkedin.com/jobs/search/?currentJobId=4250012345")
     ).toBe("https://www.linkedin.com/jobs/view/4250012345")
+    expect(
+      canonicalizePostingUrl("https://in.linkedin.com/jobs/view/platform-engineer-4250012345")
+    ).toBe("https://www.linkedin.com/jobs/view/4250012345")
   })
 
   it("removes known trackers, preserves meaningful params, and sorts them", () => {

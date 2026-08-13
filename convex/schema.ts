@@ -359,6 +359,7 @@ export default defineSchema({
     compensationNotes: v.optional(v.string()),
     postingUrl: v.optional(v.string()),
     postingUrlCanonical: v.optional(v.string()),
+    postingUrlCanonicalVersion: v.optional(v.number()),
     postingTitleSnapshot: v.optional(v.string()),
     postingCompanySnapshot: v.optional(v.string()),
     postingCapturedAt: v.optional(v.number()),
@@ -406,6 +407,10 @@ export default defineSchema({
     .index("by_userId_and_companyKey", ["userId", "companyKey"])
     .index("by_userId_and_roleKey", ["userId", "roleKey"])
     .index("by_userId_and_postingUrlCanonical", ["userId", "postingUrlCanonical"])
+    .index("by_userId_and_postingUrlCanonicalVersion", [
+      "userId",
+      "postingUrlCanonicalVersion",
+    ])
     .index("by_userId_and_source", ["userId", "source"])
     .index("by_userId_and_referralStatus", ["userId", "referralStatus"])
     .index("by_userId_and_currentResumeId", ["userId", "currentResumeId"])

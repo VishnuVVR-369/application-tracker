@@ -22,6 +22,7 @@ import {
   dateKeyFromTimestamp,
   getDomain,
   normalizeKey,
+  POSTING_URL_CANONICAL_VERSION,
   removeUndefined,
 } from "./model"
 import { completeOnboardingAfterFirstAction, getCurrentUserDoc } from "./users"
@@ -404,6 +405,8 @@ function buildApplicationPatch(args: ApplicationPatchInput) {
     postingUrl,
     postingUrlCanonical:
       postingUrl === undefined ? undefined : canonicalizePostingUrl(postingUrl),
+    postingUrlCanonicalVersion:
+      postingUrl === undefined ? undefined : POSTING_URL_CANONICAL_VERSION,
     postingTitleSnapshot: args.postingTitleSnapshot,
     postingCompanySnapshot: args.postingCompanySnapshot,
     postingCapturedAt: args.postingCapturedAt,
@@ -478,6 +481,7 @@ export async function createApplicationRecord(
       currentStageEnteredAt: now,
       referralStatus: args.referralStatus ?? "not_checked",
       sourceSystem: args.sourceSystem ?? "manual",
+      postingUrlCanonicalVersion: POSTING_URL_CANONICAL_VERSION,
       ...(args.compensationCurrency
         ? { compensationCurrency: args.compensationCurrency }
         : args.sourceSystem === "browser_extension"

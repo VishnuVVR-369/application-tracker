@@ -3,7 +3,7 @@ import { v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { createApplicationRecord } from "./applications"
-import { canonicalizePostingUrl } from "./model"
+import { canonicalizePostingUrl, POSTING_URL_CANONICAL_VERSION } from "./model"
 import { applicationSource, workArrangement } from "./schema"
 import { userLocalDateKey } from "./userDate"
 import { getCurrentUserDoc } from "./users"
@@ -62,28 +62,48 @@ async function findByCanonicalUrl(
   const canonical = canonicalizePostingUrl(postingUrl)
   if (!canonical) throw new Error("Enter a valid HTTP or HTTPS posting URL")
 
-  const indexed = await ctx.db
+  const outdated = await ctx.db
+    .query("applications")
+    .withIndex("by_userId_and_postingUrlCanonicalVersion", (q) =>
+      q
+        .eq("userId", userId)
+        .lt("postingUrlCanonicalVersion", POSTING_URL_CANONICAL_VERSION)
+    )
+    .first()
+  if (outdated) throw new Error("Application links are still being prepared. Try again shortly.")
+
+  const application = await ctx.db
     .query("applications")
     .withIndex("by_userId_and_postingUrlCanonical", (q) =>
       q.eq("userId", userId).eq("postingUrlCanonical", canonical)
     )
     .first()
-  if (indexed) return { canonical, application: indexed }
-
-  // Older rows may contain tracking parameters. Compare with current rules so
-  // the first mobile capture does not create a duplicate of legacy data.
-  const applications = await ctx.db
-    .query("applications")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect()
-  return {
-    canonical,
-    application: applications.find(
-      (application) =>
-        canonicalizePostingUrl(application.postingUrlCanonical ?? application.postingUrl) === canonical
-    ),
-  }
+  return { canonical, application }
 }
+
+export const prepareCanonicalUrls = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserDoc(ctx)
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_postingUrlCanonicalVersion", (q) =>
+        q
+          .eq("userId", user._id)
+          .lt("postingUrlCanonicalVersion", POSTING_URL_CANONICAL_VERSION)
+      )
+      .take(50)
+
+    for (const application of applications) {
+      await ctx.db.patch(application._id, {
+        postingUrlCanonical: canonicalizePostingUrl(application.postingUrl),
+        postingUrlCanonicalVersion: POSTING_URL_CANONICAL_VERSION,
+      })
+    }
+
+    return { done: applications.length < 50 }
+  },
+})
 
 export const findDuplicate = query({
   args: { postingUrl: v.string() },

@@ -103,6 +103,44 @@ describe("mobile capture API", () => {
     expect(applications).toHaveLength(1)
   })
 
+  it("prepares legacy canonical URLs in bounded batches before duplicate checks", async () => {
+    const { authed } = setup()
+    const user = await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
+    const applicationId = await authed.run((ctx) =>
+      ctx.db.insert("applications", {
+        userId: user._id,
+        companyName: "Legacy",
+        companyKey: "legacy",
+        roleTitle: "Engineer",
+        roleKey: "engineer",
+        postingUrl: "https://in.linkedin.com/jobs/view/engineer-4250012345?trackingId=old",
+        postingUrlCanonical:
+          "https://in.linkedin.com/jobs/view/engineer-4250012345?trackingId=old",
+        stage: "saved",
+        currentStageEnteredAt: Date.now(),
+        qualityChecks: [],
+        archived: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    )
+
+    await expect(
+      authed.query(api.mobileCapture.findDuplicate, {
+        postingUrl: "https://www.linkedin.com/jobs/view/4250012345",
+      })
+    ).rejects.toThrow("still being prepared")
+
+    await expect(authed.mutation(api.mobileCapture.prepareCanonicalUrls, {})).resolves.toEqual({
+      done: true,
+    })
+    await expect(
+      authed.query(api.mobileCapture.findDuplicate, {
+        postingUrl: "https://www.linkedin.com/jobs/view/4250012345",
+      })
+    ).resolves.toMatchObject({ applicationId })
+  })
+
   it("does not match meaningful query parameters", async () => {
     const { authed } = setup()
     await authed.mutation(api.users.ensureCurrent, { timezone: "UTC" })
