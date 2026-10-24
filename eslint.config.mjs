@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Convex owns these generated files.
+    "convex/_generated/**",
+    "convex/betterAuth/_generated/**",
   ]),
 ]);
 
