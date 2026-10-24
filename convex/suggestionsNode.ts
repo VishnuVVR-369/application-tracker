@@ -5,7 +5,7 @@ import { v } from "convex/values"
 import { suggestionsSchema } from "../lib/resume-writing"
 import { internal } from "./_generated/api"
 import { internalAction } from "./_generated/server"
-import { generateWriting, writingError } from "./writingAi"
+import { generateWriting, RetryableWritingError, writingError } from "./writingAi"
 
 const instructions = `Suggest focused, useful plain-text edits to this base resume for this job description, using only facts in the base resume and confirmed accomplishment evidence.
 Return a short summary and up to 8 prioritized suggestions. Return fewer, or none, when no useful supported edit exists. Do not optimize for an invented ATS score.
@@ -17,14 +17,17 @@ Respect each accomplishment's company, role, and period: never move experience i
 Reasons should connect the edit to an actual job requirement. Preserve important existing qualifications and avoid redundant bullets. No whole-resume rewrite, Markdown, or LaTeX.`
 
 export const generate = internalAction({
-  args: { id: v.id("resumeSuggestions"), version: v.number() },
-  handler: async (ctx, args) => {
+  // `retryable` is set for queued work, so passing OpenAI failures are retried by the jobs pool.
+  args: { id: v.id("resumeSuggestions"), version: v.number(), retryable: v.optional(v.boolean()) },
+  handler: async (ctx, { retryable, ...args }) => {
     try {
+      await ctx.runMutation(internal.suggestions.begin, args)
       const inputs = await ctx.runQuery(internal.suggestions.getForGeneration, args)
       if (!inputs) return
       const { data, model } = await generateWriting("resume_suggestions", suggestionsSchema, instructions, inputs)
       await ctx.runMutation(internal.suggestions.finish, { ...args, ...data, model })
     } catch (error) {
+      if (retryable && error instanceof RetryableWritingError) throw error
       await ctx.runMutation(internal.suggestions.fail, { ...args, error: writingError(error) })
     }
   },

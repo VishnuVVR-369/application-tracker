@@ -11,6 +11,7 @@ import { ReferralsTab } from "@/components/application/referrals-tab"
 import { ResumeTab } from "@/components/application/resume-tab"
 import { CloseDialog } from "@/components/close-dialog"
 import { CompanyMark } from "@/components/company-mark"
+import { InboxActions, PipelineStatus } from "@/components/inbox/inbox-actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,7 +105,11 @@ function SheetBody({ id, onClose }: { id: Id<"applications">; onClose: () => voi
         <SheetTitle className="mt-1 text-xl leading-tight font-semibold tracking-tight">{application.role}</SheetTitle>
         <SheetDescription className="sr-only">Application details, referrals, and resume</SheetDescription>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <StatusControl application={application} />
+          {application.status === "discovered" || application.status === "dismissed" ? (
+            <InboxControls application={application} status={application.status} />
+          ) : (
+            <StatusControl application={application} />
+          )}
           <Timeline application={application} />
         </div>
         <TabsList variant="line" className="mt-3 -mb-px h-10 gap-4 p-0">
@@ -137,6 +142,28 @@ function SheetBody({ id, onClose }: { id: Id<"applications">; onClose: () => voi
         </TabsContent>
       </div>
     </Tabs>
+  )
+}
+
+/** A job still in the inbox: shortlist or dismiss it, and see what the automation is doing. */
+function InboxControls({ application, status }: { application: ApplicationDetail; status: "discovered" | "dismissed" }) {
+  const settings = useQuery(api.settings.get)
+  const analyses = useQuery(api.analyses.forApplication, { applicationId: application._id })
+  const chosen = analyses?.find((analysis) => analysis.baseResumeId === application.baseResumeId)
+  return (
+    <>
+      <InboxActions id={application._id} status={status} />
+      {status === "discovered" && settings && (
+        <PipelineStatus
+          id={application._id}
+          className="basis-full"
+          pipeline={application.pipeline}
+          score={chosen?.score ?? application.fit?.score ?? null}
+          threshold={settings.fitThreshold}
+          suggestionsReady={application.pipeline?.state === "done" && (chosen?.score ?? -1) >= settings.fitThreshold}
+        />
+      )}
+    </>
   )
 }
 
@@ -191,6 +218,14 @@ function StatusControl({ application }: { application: ApplicationDetail }) {
 }
 
 function Timeline({ application }: { application: ApplicationDetail }) {
+  if (application.status === "discovered" || application.status === "dismissed") {
+    const found = `Found ${dateFormat.format(application.discoveredAt ?? application.savedAt)}`
+    const text =
+      application.status === "dismissed"
+        ? `${found} · Dismissed ${dateFormat.format(application.statusChangedAt)}${application.dismissReason ? `: ${application.dismissReason}` : ""}`
+        : found
+    return <p className="ml-1 text-xs text-muted-foreground">{text}</p>
+  }
   const parts = [`Saved ${dateFormat.format(application.savedAt)}`]
   if (application.appliedAt) parts.push(`Applied ${dateFormat.format(application.appliedAt)}`)
   if (application.status === "in_progress" || application.status === "closed") {

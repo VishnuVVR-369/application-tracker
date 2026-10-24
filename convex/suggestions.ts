@@ -1,14 +1,16 @@
+import { vOnCompleteValidator } from "@convex-dev/workpool"
 import { ConvexError, v } from "convex/values"
 
 import { inputFingerprint, validateSuggestions } from "../lib/resume-writing"
 import { JOB_TIMEOUT_MS } from "../lib/resume-writing-limits"
 import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
-import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server"
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { getOwned, getUserId, requireUserId } from "./helpers"
+import { jobsPool } from "./pool"
 import { suggestionFields } from "./schema"
 
-async function loadInputs(
+export async function loadInputs(
   ctx: QueryCtx,
   userId: string,
   applicationId: Id<"applications">,
@@ -58,7 +60,7 @@ async function loadInputs(
   return { inputs, fingerprint: await inputFingerprint(inputs) }
 }
 
-function assertReady(inputs: Awaited<ReturnType<typeof loadInputs>>["inputs"]) {
+export function assertReady(inputs: Awaited<ReturnType<typeof loadInputs>>["inputs"]) {
   if (inputs.resumeStatus !== "ready" || !inputs.resumeText)
     throw new ConvexError("Wait for the base resume PDF to finish reading, or retry its extraction.")
   if (inputs.jobDescription.trim().length < 80)
@@ -98,36 +100,68 @@ export const generate = mutation({
   args: { applicationId: v.id("applications"), baseResumeId: v.id("baseResumes") },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx)
-    const { inputs, fingerprint } = await loadInputs(ctx, userId, args.applicationId, args.baseResumeId)
-    assertReady(inputs)
-    const existing = await ctx.db
-      .query("resumeSuggestions")
-      .withIndex("by_application_resume", (q) =>
-        q.eq("applicationId", args.applicationId).eq("baseResumeId", args.baseResumeId),
-      )
-      .unique()
-    if (existing?.status === "generating" && Date.now() - existing.startedAt < JOB_TIMEOUT_MS) {
-      throw new ConvexError("Suggestions are already being generated for this resume.")
-    }
-    const version = (existing?.version ?? 0) + 1
-    const fields = {
-      userId,
-      ...args,
-      status: "generating" as const,
-      version,
-      startedAt: Date.now(),
-      requestFingerprint: fingerprint,
-      error: undefined,
-    }
-    let id: Id<"resumeSuggestions">
-    if (existing) {
-      id = existing._id
-      await ctx.db.patch(id, fields)
-    } else {
-      id = await ctx.db.insert("resumeSuggestions", fields)
-    }
-    await ctx.db.patch(args.applicationId, { baseResumeId: args.baseResumeId })
+    await startSuggestions(ctx, userId, args.applicationId, args.baseResumeId, "now")
+    // Choosing to tailor this resume is choosing it, so the inbox automation won't switch it.
+    await ctx.db.patch(args.applicationId, { baseResumeId: args.baseResumeId, baseResumePinned: true })
+  },
+})
+
+/**
+ * Starts generating suggestions for an application and base resume. The button runs it right away; the inbox
+ * pipeline queues it on the jobs pool, where passing OpenAI failures are retried.
+ */
+export async function startSuggestions(
+  ctx: MutationCtx,
+  userId: string,
+  applicationId: Id<"applications">,
+  baseResumeId: Id<"baseResumes">,
+  run: "now" | "pool",
+) {
+  const { inputs, fingerprint } = await loadInputs(ctx, userId, applicationId, baseResumeId)
+  assertReady(inputs)
+  const existing = await ctx.db
+    .query("resumeSuggestions")
+    .withIndex("by_application_resume", (q) => q.eq("applicationId", applicationId).eq("baseResumeId", baseResumeId))
+    .unique()
+  if (existing?.status === "generating" && Date.now() - existing.startedAt < JOB_TIMEOUT_MS) {
+    throw new ConvexError("Suggestions are already being generated for this resume.")
+  }
+  const version = (existing?.version ?? 0) + 1
+  const fields = {
+    userId,
+    applicationId,
+    baseResumeId,
+    status: "generating" as const,
+    version,
+    startedAt: Date.now(),
+    requestFingerprint: fingerprint,
+    error: undefined,
+  }
+  let id: Id<"resumeSuggestions">
+  if (existing) {
+    id = existing._id
+    await ctx.db.patch(id, fields)
+  } else {
+    id = await ctx.db.insert("resumeSuggestions", fields)
+  }
+  if (run === "now") {
     await ctx.scheduler.runAfter(0, internal.suggestionsNode.generate, { id, version })
+  } else {
+    await jobsPool.enqueueAction(
+      ctx,
+      internal.suggestionsNode.generate,
+      { id, version, retryable: true },
+      { retry: true, onComplete: internal.suggestions.onPoolComplete, context: { id, version } },
+    )
+  }
+}
+
+/** Restarts the clock when queued work actually starts, so time spent waiting in the pool isn't a timeout. */
+export const begin = internalMutation({
+  args: { id: v.id("resumeSuggestions"), version: v.number() },
+  handler: async (ctx, { id, version }) => {
+    const job = await ctx.db.get(id)
+    if (job?.version === version && job.status === "generating") await ctx.db.patch(id, { startedAt: Date.now() })
   },
 })
 
@@ -161,6 +195,7 @@ export const finish = internalMutation({
         status: "failed",
         error: "The job, base resume, or confirmed experience changed during generation. Generate suggestions again.",
       })
+      await advanceIfInInbox(ctx, job.applicationId)
       return
     }
     const validated = validateSuggestions(
@@ -183,6 +218,7 @@ export const finish = internalMutation({
         })),
       },
     })
+    await advanceIfInInbox(ctx, job.applicationId)
   },
 })
 
@@ -190,6 +226,32 @@ export const fail = internalMutation({
   args: { id: v.id("resumeSuggestions"), version: v.number(), error: v.string() },
   handler: async (ctx, { id, version, error }) => {
     const job = await ctx.db.get(id)
-    if (job?.version === version && job.status === "generating") await ctx.db.patch(id, { status: "failed", error })
+    if (job?.version === version && job.status === "generating") {
+      await ctx.db.patch(id, { status: "failed", error })
+      await advanceIfInInbox(ctx, job.applicationId)
+    }
   },
 })
+
+/** Records queued work that failed for good, after the pool's retries. */
+export const onPoolComplete = internalMutation({
+  args: vOnCompleteValidator(v.object({ id: v.id("resumeSuggestions"), version: v.number() })),
+  handler: async (ctx, { context, result }) => {
+    if (result.kind === "success") return
+    const job = await ctx.db.get(context.id)
+    if (job?.version !== context.version || job.status !== "generating") return
+    await ctx.db.patch(context.id, {
+      status: "failed",
+      error: "OpenAI was busy or unreachable for a while. Retry suggestions later.",
+    })
+    await advanceIfInInbox(ctx, job.applicationId)
+  },
+})
+
+/** A job in the inbox moves on once its suggestions are settled. */
+async function advanceIfInInbox(ctx: MutationCtx, applicationId: Id<"applications">) {
+  const application = await ctx.db.get(applicationId)
+  if (application?.status === "discovered") {
+    await ctx.scheduler.runAfter(0, internal.pipeline.advanceJob, { applicationId })
+  }
+}

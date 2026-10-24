@@ -26,17 +26,11 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { useNow } from "@/hooks/use-now"
 import { formatDaysAgo } from "@/lib/domain"
 import { errorMessage } from "@/lib/errors"
+import { scoreTone } from "@/lib/score"
 import { pdfProblem, uploadToConvex } from "@/lib/upload"
 import { cn } from "@/lib/utils"
 
 type Analysis = NonNullable<FunctionReturnType<typeof api.analyses.forApplication>>[number]
-
-function scoreTone(score: number) {
-  if (score >= 85)
-    return { text: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500", label: "Ready to apply" }
-  if (score >= 60) return { text: "text-amber-600 dark:text-amber-400", bar: "bg-amber-500", label: "Worth tailoring" }
-  return { text: "text-rose-600 dark:text-rose-400", bar: "bg-rose-500", label: "Weak fit" }
-}
 
 export function ResumeTab({ application }: { application: ApplicationDetail }) {
   return (
@@ -144,6 +138,7 @@ function MatchSection({ application }: { application: ApplicationDetail }) {
           </SelectContent>
         </Select>
       </div>
+      <PickedLine application={application} analyses={analyses} resumes={resumes} selectedId={selected._id} />
       {selected.textStatus === "extracting" && (
         <p className="mt-2 text-xs text-muted-foreground">Reading the PDF. This takes a few seconds.</p>
       )}
@@ -206,6 +201,48 @@ function MatchSection({ application }: { application: ApplicationDetail }) {
         )}
       </details>
     </section>
+  )
+}
+
+/** Why this resume is selected, when the inbox automation scored the job against every resume. */
+function PickedLine({
+  application,
+  analyses,
+  resumes,
+  selectedId,
+}: {
+  application: ApplicationDetail
+  analyses: Analysis[]
+  resumes: { _id: Id<"baseResumes">; label: string }[]
+  selectedId: Id<"baseResumes">
+}) {
+  if (!application.fit) return null
+  const scores = analyses
+    .map((analysis) => ({ ...analysis, label: resumes.find((resume) => resume._id === analysis.baseResumeId)?.label }))
+    .filter((analysis): analysis is Analysis & { label: string } => Boolean(analysis.label))
+    .sort((a, b) => b.score - a.score)
+  const selected = scores.find((score) => score.baseResumeId === selectedId)
+  if (!selected || scores.length === 0) return null
+  const others = scores.filter((score) => score.baseResumeId !== selectedId)
+  return (
+    <p className="mt-2 text-xs text-muted-foreground">
+      {application.baseResumePinned ? "You picked " : "Picked automatically: "}
+      <span className="font-medium text-foreground">{selected.label}</span>{" "}
+      <span className={cn("font-semibold tabular-nums", scoreTone(selected.score).text)}>{selected.score}</span>
+      {others.length > 0 && (
+        <>
+          {" "}
+          over{" "}
+          {others.map((other, index) => (
+            <span key={other._id}>
+              {index > 0 && ", "}
+              {other.label} <span className="tabular-nums">{other.score}</span>
+            </span>
+          ))}
+        </>
+      )}
+      .
+    </p>
   )
 }
 

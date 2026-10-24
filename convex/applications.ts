@@ -1,5 +1,7 @@
 import { ConvexError, v } from "convex/values"
 
+import { APPLICATION_STATUSES } from "../lib/domain"
+import { dedupeKey, PORTAL_LABELS, postingFromUrl } from "../lib/jobs"
 import type { Doc, Id } from "./_generated/dataModel"
 import { mutation, query, type MutationCtx } from "./_generated/server"
 import {
@@ -11,7 +13,8 @@ import {
   requireText,
   requireUserId,
 } from "./helpers"
-import { applicationOutcome, applicationStatus, jobSource } from "./schema"
+import { advance } from "./pipeline"
+import { applicationOutcome, boardStatus, jobSource } from "./schema"
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024
 
@@ -20,13 +23,22 @@ export const board = query({
   handler: async (ctx) => {
     const userId = await getUserId(ctx)
     if (!userId) return null
-    const [applications, { followUpDays, weeklyGoal }] = await Promise.all([
-      ctx.db
-        .query("applications")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
+    // Only the board's columns: jobs waiting in the inbox (or dismissed there) can number in the hundreds.
+    const [columns, { followUpDays, weeklyGoal }] = await Promise.all([
+      Promise.all(
+        APPLICATION_STATUSES.map((status) =>
+          ctx.db
+            .query("applications")
+            .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", status))
+            .collect(),
+        ),
+      ),
       getSettings(ctx, userId),
     ])
+    // Each column's status, typed as a board status.
+    const applications = columns.flatMap((column, index) =>
+      column.map((application) => ({ ...application, status: APPLICATION_STATUSES[index] })),
+    )
     const companyNames = new Map<Id<"companies">, string>()
     const cards = await Promise.all(
       applications.map(async (application) => {
@@ -65,7 +77,13 @@ export const get = query({
     if (!userId) return null
     const application = await ctx.db.get(id)
     if (!application || application.userId !== userId) return null
-    const company = await ctx.db.get(application.companyId)
+    const [company, postings] = await Promise.all([
+      ctx.db.get(application.companyId),
+      ctx.db
+        .query("jobPostings")
+        .withIndex("by_application", (q) => q.eq("applicationId", id))
+        .collect(),
+    ])
     const finalResumeUrl = application.finalResume
       ? await ctx.storage.getUrl(application.finalResume.storageId)
       : null
@@ -73,6 +91,16 @@ export const get = query({
       ...application,
       company: company?.name ?? "Unknown company",
       finalResumeUrl,
+      postings: postings
+        .filter((posting) => posting.extraction === "done")
+        .map(({ _id, portal, url, firstSeenAt, lastSeenAt }) => ({
+          _id,
+          portal,
+          portalLabel: PORTAL_LABELS[portal],
+          url,
+          firstSeenAt,
+          lastSeenAt,
+        })),
     }
   },
 })
@@ -82,11 +110,31 @@ export const companyNames = query({
   handler: async (ctx) => {
     const userId = await getUserId(ctx)
     if (!userId) return []
-    const companies = await ctx.db
-      .query("companies")
-      .withIndex("by_user_key", (q) => q.eq("userId", userId))
-      .collect()
-    return companies.map((company) => company.name)
+    // Companies of jobs you only collected or dismissed would crowd the suggestions.
+    const [companies, applications] = await Promise.all([
+      ctx.db
+        .query("companies")
+        .withIndex("by_user_key", (q) => q.eq("userId", userId))
+        .collect(),
+      Promise.all(
+        APPLICATION_STATUSES.map((status) =>
+          ctx.db
+            .query("applications")
+            .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", status))
+            .collect(),
+        ),
+      ),
+    ])
+    const tracked = new Set(applications.flat().map((application) => application.companyId))
+    const people = await Promise.all(
+      companies.map((company) =>
+        ctx.db
+          .query("people")
+          .withIndex("by_company", (q) => q.eq("companyId", company._id))
+          .first(),
+      ),
+    )
+    return companies.filter((company, index) => tracked.has(company._id) || people[index]).map((company) => company.name)
   },
 })
 
@@ -95,6 +143,7 @@ const editableFields = {
   role: v.string(),
   jobUrl: v.optional(v.string()),
   source: jobSource,
+  location: v.optional(v.string()),
   jobDescription: v.string(),
   notes: v.string(),
 }
@@ -105,19 +154,25 @@ export const create = mutation({
   handler: async (ctx, { applied, ...args }) => {
     const userId = await requireUserId(ctx)
     const now = Date.now()
-    return await ctx.db.insert("applications", {
+    const role = requireText(args.role, "Role")
+    const jobUrl = cleanOptional(args.jobUrl)
+    const id = await ctx.db.insert("applications", {
       userId,
       companyId: await findOrCreateCompany(ctx, userId, args.company),
-      role: requireText(args.role, "Role"),
-      jobUrl: cleanOptional(args.jobUrl),
+      role,
+      jobUrl,
       source: args.source,
+      location: cleanOptional(args.location),
       jobDescription: args.jobDescription.trim(),
       notes: args.notes.trim(),
       status: applied ? "applied" : "saved",
       savedAt: now,
       appliedAt: applied ? now : undefined,
       statusChangedAt: now,
+      dedupeKey: dedupeKey(args.company, role),
     })
+    await recordPosting(ctx, userId, id, jobUrl)
+    return id
   },
 })
 
@@ -136,20 +191,66 @@ export const update = mutation({
         throw new ConvexError("Remove this application's referrals before moving it to a different company.")
       }
     }
+    const role = requireText(args.role, "Role")
+    const jobUrl = cleanOptional(args.jobUrl)
     await ctx.db.patch(id, {
       companyId,
-      role: requireText(args.role, "Role"),
-      jobUrl: cleanOptional(args.jobUrl),
+      role,
+      jobUrl,
       source: args.source,
+      location: cleanOptional(args.location),
       jobDescription: args.jobDescription.trim(),
       notes: args.notes.trim(),
+      dedupeKey: dedupeKey(args.company, role),
     })
     await deleteCompanyIfUnused(ctx, application.companyId)
+    await recordPosting(ctx, userId, id, jobUrl)
+    // An edited description is scored again while the job is still in the inbox.
+    await advance(ctx, id)
   },
 })
 
+/**
+ * Remembers a LinkedIn or Naukri posting you added yourself, so the Job Scout recognizes it instead of adding
+ * the same job again.
+ */
+async function recordPosting(
+  ctx: MutationCtx,
+  userId: string,
+  applicationId: Id<"applications">,
+  jobUrl: string | undefined,
+) {
+  const posting = jobUrl ? postingFromUrl(jobUrl) : null
+  if (!posting) return
+  const existing = await ctx.db
+    .query("jobPostings")
+    .withIndex("by_user_portal_posting", (q) =>
+      q.eq("userId", userId).eq("portal", posting.portal).eq("postingId", posting.postingId),
+    )
+    .unique()
+  if (existing) {
+    if (existing.applicationId === applicationId) return
+    const linked = existing.applicationId ? await ctx.db.get(existing.applicationId) : null
+    // A posting belongs to one application; leave it with the one it was collected for.
+    if (!linked) await ctx.db.patch(existing._id, { applicationId, extraction: "done", error: undefined })
+    return
+  }
+  const now = Date.now()
+  await ctx.db.insert("jobPostings", {
+    userId,
+    portal: posting.portal,
+    postingId: posting.postingId,
+    url: posting.url,
+    applicationId,
+    feeds: [],
+    extraction: "done",
+    firstSeenAt: now,
+    lastSeenAt: now,
+  })
+}
+
 export const setStatus = mutation({
-  args: { id: v.id("applications"), status: applicationStatus, outcome: v.optional(applicationOutcome) },
+  args: { id: v.id("applications"), status: boardStatus, outcome: v.optional(applicationOutcome) },
   handler: async (ctx, { id, status, outcome }) => {
     const userId = await requireUserId(ctx)
     const application = await getOwned(ctx, userId, id)
@@ -161,6 +262,8 @@ export const setStatus = mutation({
       outcome: status === "closed" ? outcome : undefined,
     }
     if (application.status !== status) patch.statusChangedAt = now
+    // Leaving the inbox through the status menu counts as shortlisting it.
+    if (application.status === "discovered" || application.status === "dismissed") patch.savedAt = now
     if (status === "saved") patch.appliedAt = undefined
     else if (application.appliedAt === undefined) patch.appliedAt = now
     await ctx.db.patch(id, patch)
@@ -173,7 +276,9 @@ export const setBaseResume = mutation({
     const userId = await requireUserId(ctx)
     await getOwned(ctx, userId, id)
     if (baseResumeId) await getOwned(ctx, userId, baseResumeId)
-    await ctx.db.patch(id, { baseResumeId })
+    // Your pick wins over the inbox automation's from now on.
+    await ctx.db.patch(id, { baseResumeId, baseResumePinned: baseResumeId ? true : undefined })
+    await advance(ctx, id)
   },
 })
 
@@ -224,7 +329,7 @@ export const remove = mutation({
   handler: async (ctx, { id }) => {
     const userId = await requireUserId(ctx)
     const application = await getOwned(ctx, userId, id)
-    const [referrals, analyses, suggestions] = await Promise.all([
+    const [referrals, analyses, suggestions, postings] = await Promise.all([
       ctx.db
         .query("referralRequests")
         .withIndex("by_application", (q) => q.eq("applicationId", id))
@@ -234,8 +339,18 @@ export const remove = mutation({
         .withIndex("by_application_resume", (q) => q.eq("applicationId", id))
         .collect(),
       ctx.db.query("resumeSuggestions").withIndex("by_application_resume", (q) => q.eq("applicationId", id)).collect(),
+      ctx.db
+        .query("jobPostings")
+        .withIndex("by_application", (q) => q.eq("applicationId", id))
+        .collect(),
     ])
     await Promise.all([...referrals, ...analyses, ...suggestions].map((doc) => ctx.db.delete(doc._id)))
+    // Postings stay, unlinked and without their page text, so the Job Scout doesn't collect the job again.
+    await Promise.all(
+      postings.map((posting) =>
+        ctx.db.patch(posting._id, { applicationId: undefined, pageText: undefined, pageTextHash: undefined }),
+      ),
+    )
     if (application.finalResume) await ctx.storage.delete(application.finalResume.storageId)
     await ctx.db.delete(id)
     await deleteCompanyIfUnused(ctx, application.companyId)

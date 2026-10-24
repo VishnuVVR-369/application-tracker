@@ -15,6 +15,7 @@ export type JobDraft = {
   role: string
   jobUrl: string
   source: Source
+  location: string
   jobDescription: string
   notes: string
 }
@@ -24,6 +25,7 @@ export const EMPTY_JOB: JobDraft = {
   role: "",
   jobUrl: "",
   source: "linkedin",
+  location: "",
   jobDescription: "",
   notes: "",
 }
@@ -90,20 +92,32 @@ export function JobFields({
           />
         </div>
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${id}-source`}>Found on</Label>
-        <Select value={value.source} onValueChange={(next) => set("source", next as Source)}>
-          <SelectTrigger id={`${id}-source`} className="w-full sm:w-1/2">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SOURCES.map((source) => (
-              <SelectItem key={source} value={source}>
-                {SOURCE_LABELS[source]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-source`}>Found on</Label>
+          <Select value={value.source} onValueChange={(next) => set("source", next as Source)}>
+            <SelectTrigger id={`${id}-source`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SOURCES.map((source) => (
+                <SelectItem key={source} value={source}>
+                  {SOURCE_LABELS[source]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-location`}>Location</Label>
+          <Input
+            id={`${id}-location`}
+            autoComplete="off"
+            placeholder="City, or Remote"
+            value={value.location}
+            onChange={(event) => set("location", event.target.value)}
+          />
+        </div>
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`${id}-jd`}>Job description</Label>

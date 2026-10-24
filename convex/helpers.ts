@@ -1,7 +1,13 @@
 import { ConvexError } from "convex/values"
 
-import { cleanCompanyName, companyKey, DEFAULT_FOLLOW_UP_DAYS, DEFAULT_WEEKLY_GOAL } from "../lib/domain"
-import type { Id, TableNames } from "./_generated/dataModel"
+import {
+  cleanCompanyName,
+  companyKey,
+  DEFAULT_FIT_THRESHOLD,
+  DEFAULT_FOLLOW_UP_DAYS,
+  DEFAULT_WEEKLY_GOAL,
+} from "../lib/domain"
+import type { Doc, Id, TableNames } from "./_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "./_generated/server"
 import { authComponent } from "./betterAuth/auth"
 
@@ -47,7 +53,19 @@ export async function getSettings(ctx: Ctx, userId: string) {
   return {
     followUpDays: settings?.followUpDays ?? DEFAULT_FOLLOW_UP_DAYS,
     weeklyGoal: settings?.weeklyGoal ?? DEFAULT_WEEKLY_GOAL,
+    fitThreshold: settings?.fitThreshold ?? DEFAULT_FIT_THRESHOLD,
   }
+}
+
+type SettingsPatch = Partial<Omit<Doc<"userSettings">, "_id" | "_creationTime" | "userId">>
+
+export async function saveSettings(ctx: MutationCtx, userId: string, patch: SettingsPatch) {
+  const existing = await ctx.db
+    .query("userSettings")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique()
+  if (existing) await ctx.db.patch(existing._id, patch)
+  else await ctx.db.insert("userSettings", { userId, ...(await getSettings(ctx, userId)), ...patch })
 }
 
 export async function getFollowUpDays(ctx: Ctx, userId: string) {

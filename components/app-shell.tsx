@@ -1,7 +1,7 @@
 "use client"
 
 import { useConvexAuth, useQuery } from "convex/react"
-import { BellIcon, BookOpenIcon, FileTextIcon, LayoutGridIcon } from "lucide-react"
+import { BellIcon, BookOpenIcon, FileTextIcon, InboxIcon, LayoutGridIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -15,6 +15,7 @@ import { api } from "@/convex/_generated/api"
 
 const NAV = [
   { href: "/", label: "Board", icon: LayoutGridIcon },
+  { href: "/inbox", label: "Inbox", icon: InboxIcon },
   { href: "/follow-ups", label: "Follow-ups", icon: BellIcon },
   { href: "/resumes", label: "Resumes", icon: FileTextIcon },
   { href: "/experience", label: "Experience", icon: BookOpenIcon },
@@ -51,6 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 function Nav() {
   const pathname = usePathname()
   const dueCount = useFollowUpDueCount()
+  const strongCount = useQuery(api.jobs.strongMatchCount) ?? 0
   return (
     <nav className="flex items-center gap-0.5">
       {NAV.map(({ href, label, icon: Icon }) => {
@@ -68,6 +70,11 @@ function Nav() {
           >
             <Icon className="size-4" />
             <span className="hidden sm:inline">{label}</span>
+            {href === "/inbox" && strongCount > 0 && (
+              <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground tabular-nums">
+                {strongCount}
+              </span>
+            )}
             {href === "/follow-ups" && dueCount > 0 && (
               <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-amber-500 px-1 text-[11px] font-semibold text-white tabular-nums dark:text-amber-950">
                 {dueCount}

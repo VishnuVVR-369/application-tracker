@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel"
 import { internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server"
 import { assertUploadedPdf } from "./applications"
 import { getOwned, getUserId, requireText, requireUserId } from "./helpers"
+import { scheduleInboxRefresh } from "./pipeline"
 
 export const list = query({
   args: {},
@@ -93,11 +94,17 @@ export const remove = mutation({
       .query("applications")
       .withIndex("by_base_resume", (q) => q.eq("baseResumeId", id))
       .collect()
-    await Promise.all(linked.map((application) => ctx.db.patch(application._id, { baseResumeId: undefined })))
+    await Promise.all(
+      linked.map((application) =>
+        ctx.db.patch(application._id, { baseResumeId: undefined, baseResumePinned: undefined }),
+      ),
+    )
     const suggestions = await ctx.db.query("resumeSuggestions").withIndex("by_base_resume", (q) => q.eq("baseResumeId", id)).collect()
     await Promise.all(suggestions.map((item) => ctx.db.delete(item._id)))
     await ctx.storage.delete(resume.storageId)
     await ctx.db.delete(id)
+    // Inbox jobs that used this resume pick the best of the rest.
+    await scheduleInboxRefresh(ctx, userId)
   },
 })
 
@@ -124,5 +131,7 @@ export const saveExtraction = internalMutation({
     // The file may have been replaced while extraction ran; only the latest upload's result counts.
     if (!resume || resume.storageId !== storageId) return
     await ctx.db.patch(id, text ? { text, textStatus: "ready" } : { text: undefined, textStatus: "failed" })
+    // A new or replaced resume is scored against the jobs waiting in the inbox.
+    if (text) await scheduleInboxRefresh(ctx, resume.userId)
   },
 })
