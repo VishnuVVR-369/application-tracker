@@ -39,7 +39,12 @@ export function AddJobDialog({
     const applied = submitter?.value !== "saved"
     setSaving(applied ? "applied" : "saved")
     try {
-      const id = await create({ ...draft, jobUrl: draft.jobUrl || undefined, applied })
+      const id = await create({
+        ...draft,
+        jobUrl: draft.jobUrl || undefined,
+        location: draft.location || undefined,
+        applied,
+      })
       const company = draft.company.trim()
       setDraft(EMPTY_JOB)
       onOpenChange(false)

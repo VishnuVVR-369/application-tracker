@@ -5,6 +5,7 @@ import { JOB_TIMEOUT_MS, MAX_REVIEW_LENGTH } from "../lib/resume-writing-limits"
 import { internal } from "./_generated/api"
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server"
 import { getOwned, getUserId, requireText, requireUserId } from "./helpers"
+import { scheduleInboxRefresh } from "./pipeline"
 import { accomplishmentFields, accomplishmentStatus } from "./schema"
 
 export const list = query({
@@ -85,6 +86,7 @@ export const updateAccomplishment = mutation({
       clarification: status === "confirmed" ? "" : parsed.data.clarification,
       updatedAt: Date.now(),
     })
+    if (status === "confirmed" || accomplishment.status === "confirmed") await scheduleInboxRefresh(ctx, userId)
   },
 })
 
@@ -97,6 +99,8 @@ export const setAccomplishmentStatus = mutation({
       throw new ConvexError("Edit this accomplishment to clarify your contribution before confirming it.")
     }
     await ctx.db.patch(id, { status, updatedAt: Date.now() })
+    // Confirmed experience feeds suggestions, so inbox jobs waiting for it (or using it) are refreshed.
+    if (status === "confirmed" || accomplishment.status === "confirmed") await scheduleInboxRefresh(ctx, userId)
   },
 })
 
@@ -111,6 +115,7 @@ export const removeReview = mutation({
       .collect()
     await Promise.all(accomplishments.map((item) => ctx.db.delete(item._id)))
     await ctx.db.delete(reviewId)
+    if (accomplishments.some((item) => item.status === "confirmed")) await scheduleInboxRefresh(ctx, userId)
   },
 })
 

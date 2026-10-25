@@ -10,12 +10,18 @@
 
 import type * as analyses from "../analyses.js";
 import type * as analysesNode from "../analysesNode.js";
+import type * as apiTokens from "../apiTokens.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
 import type * as experience from "../experience.js";
 import type * as experienceNode from "../experienceNode.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
+import type * as jobs from "../jobs.js";
+import type * as jobsNode from "../jobsNode.js";
+import type * as mcp from "../mcp.js";
+import type * as pipeline from "../pipeline.js";
+import type * as pool from "../pool.js";
 import type * as referrals from "../referrals.js";
 import type * as resumes from "../resumes.js";
 import type * as resumesNode from "../resumesNode.js";
@@ -33,12 +39,18 @@ import type {
 declare const fullApi: ApiFromModules<{
   analyses: typeof analyses;
   analysesNode: typeof analysesNode;
+  apiTokens: typeof apiTokens;
   applications: typeof applications;
   auth: typeof auth;
   experience: typeof experience;
   experienceNode: typeof experienceNode;
   helpers: typeof helpers;
   http: typeof http;
+  jobs: typeof jobs;
+  jobsNode: typeof jobsNode;
+  mcp: typeof mcp;
+  pipeline: typeof pipeline;
+  pool: typeof pool;
   referrals: typeof referrals;
   resumes: typeof resumes;
   resumesNode: typeof resumesNode;
@@ -76,4 +88,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
+  jobsPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"jobsPool">;
 };

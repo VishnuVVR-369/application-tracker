@@ -42,7 +42,11 @@ export function FollowUpsView() {
       <h1 className="font-display text-2xl font-semibold tracking-tight">Follow-ups</h1>
       <p className="text-sm text-muted-foreground">
         Referral requests with no reply after {settings.followUpDays} day{settings.followUpDays === 1 ? "" : "s"}.
-        Change the timing from your account menu.
+        Change the timing in{" "}
+        <Link href="/settings" className="underline underline-offset-4 hover:text-foreground">
+          Settings
+        </Link>
+        .
       </p>
 
       {requests.length === 0 ? (

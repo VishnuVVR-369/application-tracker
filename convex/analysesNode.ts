@@ -1,10 +1,11 @@
 "use node"
 
-import { ConvexError, v } from "convex/values"
+import { v } from "convex/values"
 import { z } from "zod"
 
 import { internal } from "./_generated/api"
-import { action } from "./_generated/server"
+import { action, internalAction } from "./_generated/server"
+import { generateWriting, RetryableWritingError, writingError } from "./writingAi"
 
 const analysisSchema = z.strictObject({
   score: z.number().int().min(0).max(100),
@@ -28,62 +29,38 @@ Return:
 
 Keywords are short (1-4 words) and use the job description's wording, so the candidate can mirror it. Ignore boilerplate such as benefits, equal-opportunity statements, and company marketing. Never invent experience.`
 
+/** The Analyze button in an application's Resume tab, for the selected base resume. */
 export const run = action({
   args: { applicationId: v.id("applications") },
   handler: async (ctx, { applicationId }) => {
     const inputs = await ctx.runQuery(internal.analyses.getInputs, { applicationId })
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) throw new ConvexError("Set OPENAI_API_KEY in your Convex environment to analyze resumes.")
-    const model = process.env.OPENAI_MODEL ?? "gpt-5.5"
-
-    let response: Response
-    try {
-      response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(120_000),
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: instructions },
-            {
-              role: "user",
-              content: `Role: ${inputs.role} at ${inputs.company}\n\n<job_description>\n${inputs.jobDescription}\n</job_description>\n\n<resume>\n${inputs.resumeText}\n</resume>`,
-            },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: { name: "resume_match", strict: true, schema: z.toJSONSchema(analysisSchema, { target: "draft-7" }) },
-          },
-        }),
-      })
-    } catch (error) {
-      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-        throw new ConvexError("The analysis timed out. Please try again.")
-      }
-      throw new ConvexError("Couldn't reach OpenAI. Please try again.")
-    }
-    if (!response.ok) {
-      console.error("OpenAI error", response.status, await response.text())
-      if (response.status === 429) throw new ConvexError("OpenAI is rate limiting or out of quota. Try again later.")
-      if (response.status === 401) throw new ConvexError("OpenAI rejected the API key. Check OPENAI_API_KEY.")
-      throw new ConvexError(`OpenAI request failed (${response.status}). Please try again.`)
-    }
-
-    const completion = (await response.json()) as {
-      choices?: { message?: { content?: string | null; refusal?: string | null } }[]
-    }
-    const message = completion.choices?.[0]?.message
-    if (message?.refusal) throw new ConvexError("The model declined to analyze this resume.")
-    const parsed = analysisSchema.safeParse(JSON.parse(message?.content ?? "null"))
-    if (!parsed.success) throw new ConvexError("Got an unexpected response from OpenAI. Please try again.")
-
+    const { data, model } = await generateWriting("resume_match", analysisSchema, instructions, inputs.prompt)
     await ctx.runMutation(internal.analyses.save, {
       userId: inputs.userId,
       applicationId,
       baseResumeId: inputs.baseResumeId,
-      ...parsed.data,
+      fingerprint: inputs.fingerprint,
+      ...data,
       model,
     })
+  },
+})
+
+/** Scores one base resume for a job in the inbox. Runs on the jobs pool, which retries passing failures. */
+export const analyzeForPipeline = internalAction({
+  args: { applicationId: v.id("applications"), baseResumeId: v.id("baseResumes"), fingerprint: v.string() },
+  handler: async (ctx, args) => {
+    const inputs = await ctx.runQuery(internal.analyses.getForPipeline, args)
+    if (!inputs) {
+      await ctx.runMutation(internal.pipeline.analysisSettled, args)
+      return
+    }
+    try {
+      const { data, model } = await generateWriting("resume_match", analysisSchema, instructions, inputs.prompt)
+      await ctx.runMutation(internal.analyses.save, { ...args, userId: inputs.userId, ...data, model })
+    } catch (error) {
+      if (error instanceof RetryableWritingError) throw error
+      await ctx.runMutation(internal.pipeline.analysisSettled, { ...args, error: writingError(error) })
+    }
   },
 })

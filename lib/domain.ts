@@ -1,13 +1,25 @@
 // Shared between Convex functions and the UI. Keep free of runtime-specific imports.
 
+/** The board's columns, in order. */
 export const APPLICATION_STATUSES = ["saved", "applied", "in_progress", "closed"] as const
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number]
 
-export const STATUS_LABELS: Record<ApplicationStatus, string> = {
+/** Jobs the Job Scout collected wait in the inbox until you shortlist (Saved) or dismiss them. */
+export const INBOX_STATUSES = ["discovered", "dismissed"] as const
+export type InboxStatus = (typeof INBOX_STATUSES)[number]
+export type AnyStatus = ApplicationStatus | InboxStatus
+
+export const STATUS_LABELS: Record<AnyStatus, string> = {
+  discovered: "In inbox",
+  dismissed: "Dismissed",
   saved: "Saved",
   applied: "Applied",
   in_progress: "In progress",
   closed: "Closed",
+}
+
+export function isInboxStatus(status: AnyStatus): status is InboxStatus {
+  return status === "discovered" || status === "dismissed"
 }
 
 export const OUTCOMES = ["offer", "rejected", "ghosted", "withdrawn"] as const
@@ -55,6 +67,8 @@ export const CHANNEL_LABELS: Record<Channel, string> = {
 
 export const DEFAULT_FOLLOW_UP_DAYS = 4
 export const DEFAULT_WEEKLY_GOAL = 10
+/** Collected jobs whose best match score reaches this get suggested resume edits automatically. */
+export const DEFAULT_FIT_THRESHOLD = 70
 export const MAX_WEEKLY_GOAL = 50
 export const DAY_MS = 24 * 60 * 60 * 1000
 

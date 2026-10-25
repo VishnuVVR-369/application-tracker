@@ -1,15 +1,17 @@
 import { ConvexError, v } from "convex/values"
 
 import { MAX_WEEKLY_GOAL } from "../lib/domain"
-import { mutation, query, type MutationCtx } from "./_generated/server"
-import { getSettings, getUserId, requireUserId } from "./helpers"
+import { mutation, query } from "./_generated/server"
+import { getSettings, getUserId, requireUserId, saveSettings } from "./helpers"
+import { scheduleInboxRefresh } from "./pipeline"
 
 export const get = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getUserId(ctx)
     if (!userId) return null
-    return await getSettings(ctx, userId)
+    const { followUpDays, weeklyGoal, fitThreshold } = await getSettings(ctx, userId)
+    return { followUpDays, weeklyGoal, fitThreshold }
   },
 })
 
@@ -35,15 +37,15 @@ export const setWeeklyGoal = mutation({
   },
 })
 
-async function saveSettings(
-  ctx: MutationCtx,
-  userId: string,
-  patch: { followUpDays?: number; weeklyGoal?: number },
-) {
-  const existing = await ctx.db
-    .query("userSettings")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .unique()
-  if (existing) await ctx.db.patch(existing._id, patch)
-  else await ctx.db.insert("userSettings", { userId, ...(await getSettings(ctx, userId)), ...patch })
-}
+export const setFitThreshold = mutation({
+  args: { threshold: v.number() },
+  handler: async (ctx, { threshold }) => {
+    const userId = await requireUserId(ctx)
+    if (!Number.isInteger(threshold) || threshold < 0 || threshold > 100) {
+      throw new ConvexError("Pick a whole number between 0 and 100.")
+    }
+    await saveSettings(ctx, userId, { fitThreshold: threshold })
+    // Jobs in the inbox that now reach the threshold get their suggestions.
+    await scheduleInboxRefresh(ctx, userId)
+  },
+})
